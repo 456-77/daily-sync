@@ -1,0 +1,19 @@
+# Java / Maven
+backend/target/
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# 前端（M4 用）
+frontend/node_modules/
+frontend/dist/
+
+# 环境变量与本地配置
+.env
+*.local.yml
+
+# Obsidian 插件（自带独立 git 仓库，避免嵌套仓库误提交）
+quick-daily-note/

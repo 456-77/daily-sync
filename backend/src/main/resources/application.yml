@@ -1,0 +1,28 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: daily-sync
+  datasource:
+    # 云服务器 120.26.58.22 上的 MySQL（Docker 容器，端口已对公网放开）；
+    # allowPublicKeyRetrieval 是 MySQL 8 caching_sha2_password 首连必需
+    url: jdbc:mysql://120.26.58.22:3306/daily_sync?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: daily_sync
+    password: ${DB_PASSWORD:DailySync_2026}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    # 开发期把 SQL 打到控制台，方便学习观察；上生产前删掉
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    banner: false
+
+daily-sync:
+  # JWT 签名密钥：必须 >= 32 字节。生产环境用环境变量覆盖，不要用默认值
+  jwt-secret: ${JWT_SECRET:dev-only-secret-please-change-me-0123456789abcdef}
+  jwt-access-ttl-minutes: 120
+  # 注册邀请码：留空 = 开放注册；配置后注册必须携带
+  invite-code: ${INVITE_CODE:}

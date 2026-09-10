@@ -6,8 +6,9 @@ spring:
     name: daily-sync
   datasource:
     # 云服务器 120.26.58.22 上的 MySQL（Docker 容器，端口已对公网放开）；
+    # 容器化部署时 DB_HOST 改为宿主机地址（host.docker.internal，见 docker-compose.yml）
     # allowPublicKeyRetrieval 是 MySQL 8 caching_sha2_password 首连必需
-    url: jdbc:mysql://120.26.58.22:3306/daily_sync?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    url: jdbc:mysql://${DB_HOST:120.26.58.22}:${DB_PORT:3306}/daily_sync?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
     username: daily_sync
     password: ${DB_PASSWORD:DailySync_2026}
     driver-class-name: com.mysql.cj.jdbc.Driver

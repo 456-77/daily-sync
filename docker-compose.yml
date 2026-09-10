@@ -1,0 +1,34 @@
+# 服务器部署编排（120.26.58.22:/opt/daily-sync/）：
+#   镜像由 GitHub Actions 构建后 docker load 进本机，MySQL 是宿主机上已有的容器，
+#   通过 host.docker.internal（host-gateway 映射到宿主网关）连它的 3306。
+#   敏感配置全部来自同目录 .env（不入库），字段见 .env.example。
+services:
+  daily-sync:
+    image: daily-sync:latest
+    container_name: daily-sync
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: "3306"
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      # 邀请码：留空开放注册；上公网建议配置
+      INVITE_CODE: ${INVITE_CODE:-}
+      # 尚未上反向代理时保持 false；将来套 nginx 后改 true（客户端 IP 取 X-Forwarded-For）
+      BEHIND_PROXY: ${BEHIND_PROXY:-false}
+    extra_hosts:
+      # Linux 上把 host.docker.internal 指到宿主机，容器才能访问宿主端口
+      - "host.docker.internal:host-gateway"
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      # 镜像里没有 curl/wget，用 bash 的 /dev/tcp 发裸 HTTP 请求探活
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf \"GET /healthz HTTP/1.0\\r\\r\" >&3 && head -n1 <&3 | grep -q \" 200\"'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s

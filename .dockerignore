@@ -1,0 +1,11 @@
+# 构建上下文瘦身：只留 Dockerfile 需要的东西
+.git
+.idea
+**/node_modules
+**/dist
+**/target
+backend/*.log
+quick-daily-note
+M*.md
+.env
+*.local.yml

@@ -17,3 +17,6 @@ frontend/dist/
 
 # Obsidian 插件（自带独立 git 仓库，避免嵌套仓库误提交）
 quick-daily-note/
+
+# ZCode 工具目录
+.zcode/

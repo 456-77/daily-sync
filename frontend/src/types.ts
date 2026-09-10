@@ -41,3 +41,14 @@ export interface DateCount {
   date: string;
   count: number;
 }
+
+/** 审计日志条目（M5）：action 为事件类型字符串，中文标签在 AuditLogs 里映射 */
+export interface AuditLog {
+  id: number;
+  userId: number | null;
+  vaultId: number | null;
+  action: string;
+  detail: string;
+  ip: string;
+  createdAt: string;
+}

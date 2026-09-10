@@ -26,3 +26,12 @@ daily-sync:
   jwt-access-ttl-minutes: 120
   # 注册邀请码：留空 = 开放注册；配置后注册必须携带
   invite-code: ${INVITE_CODE:}
+  # 限流（M5）：/api/v1/auth/** 按客户端 IP；/api/v1/sync 按同步令牌哈希（无令牌按 IP）。
+  # 插件正常节奏是 5 分钟一轮 push+pull，120/分钟上限绰绰有余；本机联调可整体关闭
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    auth-per-minute: 10
+    sync-per-minute: 120
+  # 是否部署在反向代理之后（M6 上云后置 true）：开启后客户端 IP 取 X-Forwarded-For 首段。
+  # 直连公网时保持 false——该头可被伪造，盲信会绕过按 IP 的限流
+  behind-proxy: ${BEHIND_PROXY:false}

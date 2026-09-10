@@ -5,13 +5,15 @@ import Login from "./Login";
 import Vaults from "./Vaults";
 import Tokens from "./Tokens";
 import Records from "./Records";
+import AuditLogs from "./AuditLogs";
 
-type Tab = "vaults" | "tokens" | "records";
+type Tab = "vaults" | "tokens" | "records" | "audit";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "vaults", label: "仓库" },
   { key: "tokens", label: "同步令牌" },
   { key: "records", label: "日记浏览" },
+  { key: "audit", label: "日志" },
 ];
 
 /** 认证门 + 主框架：顶栏（用户名/退出）+ 三个功能页签 */
@@ -103,6 +105,7 @@ export default function App() {
           ) : (
             <div className="panel empty">请先在「仓库」页创建或选择一个仓库</div>
           ))}
+        {tab === "audit" && <AuditLogs />}
       </main>
     </div>
   );

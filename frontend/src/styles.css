@@ -283,6 +283,35 @@ button.danger:hover:not(:disabled) {
   color: var(--muted);
 }
 
+/* ---------- 审计日志（M5） ---------- */
+.tag-danger {
+  background: rgba(209, 36, 47, 0.1);
+  color: var(--danger);
+}
+
+.audit-time {
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.audit-detail {
+  word-break: break-all;
+}
+
+.audit-ip {
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.audit-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
 /* ---------- 令牌弹窗 ---------- */
 .modal-mask {
   position: fixed;

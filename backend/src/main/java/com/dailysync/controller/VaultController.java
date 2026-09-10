@@ -2,12 +2,14 @@ package com.dailysync.controller;
 
 import com.dailysync.auth.UserContext;
 import com.dailysync.common.ApiResponse;
+import com.dailysync.common.ClientIp;
 import com.dailysync.dto.CreateSyncTokenRequest;
 import com.dailysync.dto.CreateVaultRequest;
 import com.dailysync.dto.SyncTokenCreatedResponse;
 import com.dailysync.dto.SyncTokenInfoResponse;
 import com.dailysync.dto.VaultResponse;
 import com.dailysync.service.VaultService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +30,7 @@ import java.util.List;
 public class VaultController {
 
     private final VaultService vaultService;
+    private final ClientIp clientIp;
 
     /**
      * 创建仓库。新仓库 version=0（拉取游标起点）。
@@ -35,8 +38,9 @@ public class VaultController {
      * <p>错误：400 仓库名为空或超 64 字符；409 同名仓库已存在。
      */
     @PostMapping
-    public ApiResponse<VaultResponse> create(@Valid @RequestBody CreateVaultRequest req) {
-        return ApiResponse.ok(vaultService.create(UserContext.userId(), req));
+    public ApiResponse<VaultResponse> create(@Valid @RequestBody CreateVaultRequest req,
+                                             HttpServletRequest request) {
+        return ApiResponse.ok(vaultService.create(UserContext.userId(), req, clientIp.of(request)));
     }
 
     /** 列出当前用户的所有仓库（按 id 升序），含各自最新 version。 */
@@ -56,8 +60,9 @@ public class VaultController {
      */
     @PostMapping("/{id}/tokens")
     public ApiResponse<SyncTokenCreatedResponse> issueToken(@PathVariable Long id,
-                                                            @Valid @RequestBody CreateSyncTokenRequest req) {
-        return ApiResponse.ok(vaultService.issueToken(UserContext.userId(), id, req));
+                                                            @Valid @RequestBody CreateSyncTokenRequest req,
+                                                            HttpServletRequest request) {
+        return ApiResponse.ok(vaultService.issueToken(UserContext.userId(), id, req, clientIp.of(request)));
     }
 
     /**
@@ -77,8 +82,9 @@ public class VaultController {
      * <p>错误：404 仓库或令牌不存在。
      */
     @DeleteMapping("/{id}/tokens/{tokenId}")
-    public ApiResponse<Void> revokeToken(@PathVariable Long id, @PathVariable Long tokenId) {
-        vaultService.revokeToken(UserContext.userId(), id, tokenId);
+    public ApiResponse<Void> revokeToken(@PathVariable Long id, @PathVariable Long tokenId,
+                                         HttpServletRequest request) {
+        vaultService.revokeToken(UserContext.userId(), id, tokenId, clientIp.of(request));
         return ApiResponse.ok(null);
     }
 }

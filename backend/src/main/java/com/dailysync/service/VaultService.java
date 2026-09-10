@@ -25,6 +25,7 @@ import java.util.List;
 /**
  * 仓库与同步令牌管理。
  * 归属校验统一走 {@link #ownedVault}：不存在与非本人一律 404，不暴露仓库是否存在。
+ * 建仓库、签发/撤销令牌都会写审计日志（M5），IP 由 Controller 传入。
  */
 @Service
 @RequiredArgsConstructor
@@ -34,10 +35,11 @@ public class VaultService {
 
     private final VaultMapper vaultMapper;
     private final SyncTokenMapper syncTokenMapper;
+    private final AuditService auditService;
 
     /** 创建仓库（用户内名称唯一，冲突 409），新仓库 version=0。 */
     @Transactional
-    public VaultResponse create(Long userId, CreateVaultRequest req) {
+    public VaultResponse create(Long userId, CreateVaultRequest req, String ip) {
         Long count = vaultMapper.selectCount(Wrappers.<Vault>lambdaQuery()
                 .eq(Vault::getUserId, userId).eq(Vault::getName, req.name()));
         if (count != null && count > 0) {
@@ -49,6 +51,8 @@ public class VaultService {
         vault.setVersion(0L);
         vault.setCreatedAt(LocalDateTime.now());
         vaultMapper.insert(vault);
+        auditService.record(userId, vault.getId(), AuditService.Action.VAULT_CREATE,
+                "仓库名: " + vault.getName(), ip);
         return toResponse(vault);
     }
 
@@ -61,7 +65,7 @@ public class VaultService {
 
     /** 签发同步令牌（dst_ + 32 字节随机数的十六进制），一个仓库可签多枚（一台设备一枚）。 */
     @Transactional
-    public SyncTokenCreatedResponse issueToken(Long userId, Long vaultId, CreateSyncTokenRequest req) {
+    public SyncTokenCreatedResponse issueToken(Long userId, Long vaultId, CreateSyncTokenRequest req, String ip) {
         Vault vault = ownedVault(userId, vaultId);
 
         byte[] bytes = new byte[32];
@@ -75,6 +79,9 @@ public class VaultService {
         entity.setStatus(1);
         entity.setCreatedAt(LocalDateTime.now());
         syncTokenMapper.insert(entity);
+        // 审计只记备注名与令牌 id，永不记明文或哈希
+        auditService.record(userId, vault.getId(), AuditService.Action.TOKEN_ISSUE,
+                "令牌 #" + entity.getId() + "（" + entity.getName() + "）", ip);
         // 明文 token 只出现在这一次响应里，之后库里只有哈希
         return new SyncTokenCreatedResponse(entity.getId(), entity.getName(), token, entity.getCreatedAt());
     }
@@ -91,7 +98,7 @@ public class VaultService {
 
     /** 撤销令牌（status=0），立即生效且不可恢复。 */
     @Transactional
-    public void revokeToken(Long userId, Long vaultId, Long tokenId) {
+    public void revokeToken(Long userId, Long vaultId, Long tokenId, String ip) {
         ownedVault(userId, vaultId);
         SyncToken token = syncTokenMapper.selectById(tokenId);
         if (token == null || !token.getVaultId().equals(vaultId)) {
@@ -99,6 +106,8 @@ public class VaultService {
         }
         token.setStatus(0);
         syncTokenMapper.updateById(token);
+        auditService.record(userId, vaultId, AuditService.Action.TOKEN_REVOKE,
+                "令牌 #" + token.getId() + "（" + token.getName() + "）", ip);
     }
 
     /** 取属于当前用户的仓库；不存在或不是本人的统一 404，不暴露仓库是否存在（供其他 Service 复用）。 */

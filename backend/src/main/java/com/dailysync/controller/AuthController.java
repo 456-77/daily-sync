@@ -1,14 +1,16 @@
 package com.dailysync.controller;
 
 import com.dailysync.common.ApiResponse;
+import com.dailysync.common.ClientIp;
 import com.dailysync.dto.*;
 import com.dailysync.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * 认证接口（无需登录）。
+ * 认证接口（无需登录）。IP 会随请求传入服务层，用于审计日志与限流。
  *
  * <p>签发的 accessToken（JWT，默认 120 分钟有效）用于调用 /api/v1/** 下的用户接口，
  * 通过 {@code Authorization: Bearer <token>} 头携带；refreshToken 用于到期前换取新令牌对，
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final ClientIp clientIp;
 
     /**
      * 注册新用户并直接返回令牌对（注册即登录）。
@@ -30,18 +33,21 @@ public class AuthController {
      * <p>错误：400 参数校验失败 / 邀请码错误；409 用户名已存在。
      */
     @PostMapping("/register")
-    public ApiResponse<TokenResponse> register(@Valid @RequestBody RegisterRequest req) {
-        return ApiResponse.ok(authService.register(req));
+    public ApiResponse<TokenResponse> register(@Valid @RequestBody RegisterRequest req,
+                                               HttpServletRequest request) {
+        return ApiResponse.ok(authService.register(req, clientIp.of(request)));
     }
 
     /**
      * 登录，返回 accessToken / refreshToken / expiresIn（秒）。
+     * 成败都会记审计日志（失败含尝试的用户名，便于发现暴力破解）。
      *
      * <p>错误：400 参数校验失败；401 用户名或密码错误。
      */
     @PostMapping("/login")
-    public ApiResponse<TokenResponse> login(@Valid @RequestBody LoginRequest req) {
-        return ApiResponse.ok(authService.login(req));
+    public ApiResponse<TokenResponse> login(@Valid @RequestBody LoginRequest req,
+                                            HttpServletRequest request) {
+        return ApiResponse.ok(authService.login(req, clientIp.of(request)));
     }
 
     /**

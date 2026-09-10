@@ -162,7 +162,7 @@ export default function Records({ vaultId }: { vaultId: number }) {
               <div className="empty">该日期没有日记</div>
             )
           ) : (
-            <div className="empty">点击左侧日历上有记号的日期查看日记</div>
+            <div className="empty">点击日历上有记号的日期查看日记</div>
           )}
         </div>
       </div>

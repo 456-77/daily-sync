@@ -55,39 +55,47 @@ export default function AuditLogs() {
         </span>
       </div>
       {error && <p className="form-error">{error}</p>}
-      <table className="table">
-        <thead>
-          <tr>
-            <th>时间</th>
-            <th>事件</th>
-            <th>详情</th>
-            <th>来源 IP</th>
-          </tr>
-        </thead>
-        <tbody>
-          {logs.map((log) => (
-            <tr key={log.id}>
-              <td className="audit-time">{new Date(log.createdAt).toLocaleString()}</td>
-              <td>
-                {DANGER_ACTIONS.has(log.action) ? (
-                  <span className="tag tag-danger">{ACTION_LABELS[log.action] ?? log.action}</span>
-                ) : (
-                  <span className="tag">{ACTION_LABELS[log.action] ?? log.action}</span>
-                )}
-              </td>
-              <td className="audit-detail">{log.detail || "—"}</td>
-              <td className="audit-ip">{log.ip || "—"}</td>
-            </tr>
-          ))}
-          {logs.length === 0 && !loading && (
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
             <tr>
-              <td colSpan={4} className="empty">
-                还没有日志——下次登录起会在这里留下记录
-              </td>
+              <th>时间</th>
+              <th>事件</th>
+              <th>详情</th>
+              <th>来源 IP</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {logs.map((log) => (
+              <tr key={log.id}>
+                <td className="audit-time" data-label="时间">
+                  {new Date(log.createdAt).toLocaleString()}
+                </td>
+                <td data-label="事件">
+                  {DANGER_ACTIONS.has(log.action) ? (
+                    <span className="tag tag-danger">{ACTION_LABELS[log.action] ?? log.action}</span>
+                  ) : (
+                    <span className="tag">{ACTION_LABELS[log.action] ?? log.action}</span>
+                  )}
+                </td>
+                <td className="audit-detail" data-label="详情">
+                  {log.detail || "—"}
+                </td>
+                <td className="audit-ip" data-label="来源 IP">
+                  {log.ip || "—"}
+                </td>
+              </tr>
+            ))}
+            {logs.length === 0 && !loading && (
+              <tr>
+                <td colSpan={4} className="empty">
+                  还没有日志——下次登录起会在这里留下记录
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
       <div className="audit-actions">
         {!done && logs.length > 0 && (
           <button disabled={loading} onClick={() => load(logs[logs.length - 1].id)}>

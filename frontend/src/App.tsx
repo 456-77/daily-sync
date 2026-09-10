@@ -87,7 +87,7 @@ export default function App() {
               ))}
             </select>
           )}
-          <span>{getAuth()?.username}</span>
+          <span className="topbar-user">{getAuth()?.username}</span>
           <a
             href="#"
             onClick={(e) => {

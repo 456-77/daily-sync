@@ -14,6 +14,11 @@
   box-sizing: border-box;
 }
 
+html {
+  /* 移动端浏览器在横屏或系统大字号时会自行放大字号，固定住 */
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
@@ -26,9 +31,11 @@ body {
 /* ---------- 登录 ---------- */
 .login-wrap {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 16px;
 }
 
 .login-card {
@@ -36,7 +43,8 @@ body {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 36px 40px;
-  width: 340px;
+  width: 100%;
+  max-width: 340px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -59,6 +67,52 @@ body {
   gap: 6px;
   font-size: 13px;
   color: var(--muted);
+}
+
+/* 密码框：右侧留出「显示/隐藏」开关的位置 */
+.password-field {
+  position: relative;
+  display: block;
+}
+
+.password-field input {
+  width: 100%;
+  padding-right: 58px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1;
+  border: none;
+  background: none;
+  color: var(--primary);
+}
+
+.password-toggle:hover:not(:disabled) {
+  background: none;
+  text-decoration: underline;
+}
+
+.auth-switch {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.auth-switch a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.auth-switch a:hover {
+  text-decoration: underline;
 }
 
 input,
@@ -181,6 +235,14 @@ button.danger:hover:not(:disabled) {
   color: var(--text);
 }
 
+/* 用户名最长 32 字符，超长时省略而不是把顶栏撑开 */
+.topbar-user {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .vault-chip {
   background: #f0f2f5;
   border-radius: 12px;
@@ -248,6 +310,12 @@ button.danger:hover:not(:disabled) {
 
 .inline-form input {
   width: 260px;
+}
+
+/* 窄屏下表格可横向滑动（桌面端不会触发） */
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .table {
@@ -556,4 +624,178 @@ button.danger:hover:not(:disabled) {
 
 .record-content img {
   max-width: 100%;
+}
+
+/* ---------- 移动端适配 ---------- */
+/*
+ * 受众主要是手机浏览器，桌面布局在窄屏上会溢出：顶栏五个元素横排、
+ * 日记页 320px+1fr 双列放不下、表格列宽固定。按断点收窄，桌面样式不受影响。
+ */
+
+/* 日记页双列在平板竖屏就已拥挤，提前改单列（日历在上、正文在下） */
+@media (max-width: 860px) {
+  .records-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .records-main {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  /* 顶栏：品牌与账号/退出留在首行，三个页签整行换到第二行做成分段控件 */
+  .topbar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 12px;
+    padding-top: calc(8px + env(safe-area-inset-top));
+    gap: 8px 12px;
+  }
+
+  .brand {
+    font-size: 15px;
+  }
+
+  .tabs {
+    order: 3;
+    flex: 1 1 100%;
+    gap: 6px;
+  }
+
+  .tab {
+    flex: 1;
+    min-height: 38px;
+    padding: 8px 4px;
+    font-size: 13px;
+  }
+
+  .topbar-right {
+    order: 2;
+    margin-left: auto;
+    gap: 10px;
+    font-size: 13px;
+  }
+
+  .vault-select {
+    max-width: 132px;
+    font-size: 13px;
+  }
+
+  /* 收窄留白，把宽度让给内容 */
+  .content {
+    margin: 12px auto;
+    padding: 0 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .panel {
+    padding: 14px;
+    border-radius: 8px;
+  }
+
+  .panel-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+
+  .panel-head h2 {
+    font-size: 16px;
+  }
+
+  .login-card {
+    padding: 28px 22px;
+  }
+
+  /* 输入框保持 16px：iOS Safari 对小于 16px 的控件会在聚焦时自动放大整页 */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  /* 表格转卡片：每行独立成块，避免三、四列挤在 375px 里横向溢出 */
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+    width: 100%;
+  }
+
+  .table thead {
+    display: none;
+  }
+
+  .table tr {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+  }
+
+  .table tbody tr:hover {
+    background: none;
+  }
+
+  .table td {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    border: none;
+    padding: 3px 0;
+    font-size: 13px;
+  }
+
+  .table td::before {
+    content: attr(data-label);
+    flex: 0 0 64px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  /* 空状态是整行提示，不需要列标签占位 */
+  .table td.empty {
+    display: block;
+    text-align: center;
+  }
+
+  .table td.empty::before {
+    content: none;
+  }
+
+  /* 字段值允许折行，长 IP / 长详情不会顶出卡片 */
+  .table td.audit-time,
+  .table td.audit-detail,
+  .table td.audit-ip {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  /* 正文取消内部滚动：与外层页面滚动嵌套后很难操作，改为随页面滚动 */
+  .record-content {
+    padding: 14px;
+    max-height: none;
+  }
+
+  .record-content pre {
+    padding: 10px;
+  }
+
+  .chip {
+    min-height: 38px;
+  }
+
+  .cal-nav button {
+    min-width: 38px;
+    min-height: 38px;
+  }
+
+  /* 「显示/隐藏」浮在输入框内部，不适用触摸目标加高 */
+  .password-toggle {
+    min-height: 0;
+  }
 }

@@ -19,31 +19,33 @@ export default function Vaults({ vaults, reload }: { vaults: VaultInfo[]; reload
           仓库 = 一个 Obsidian 库，由插件首次同步时按库名自动创建；顶栏下拉框切换当前仓库
         </span>
       </div>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>名称</th>
-            <th>版本</th>
-            <th>创建时间</th>
-          </tr>
-        </thead>
-        <tbody>
-          {vaults.map((v) => (
-            <tr key={v.id}>
-              <td>{v.name}</td>
-              <td>v{v.version}</td>
-              <td>{new Date(v.createdAt).toLocaleString()}</td>
-            </tr>
-          ))}
-          {vaults.length === 0 && (
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
             <tr>
-              <td colSpan={3} className="empty">
-                还没有仓库——在 Obsidian 插件设置里填好账号并同步一次即可自动创建
-              </td>
+              <th>名称</th>
+              <th>版本</th>
+              <th>创建时间</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {vaults.map((v) => (
+              <tr key={v.id}>
+                <td data-label="名称">{v.name}</td>
+                <td data-label="版本">v{v.version}</td>
+                <td data-label="创建时间">{new Date(v.createdAt).toLocaleString()}</td>
+              </tr>
+            ))}
+            {vaults.length === 0 && (
+              <tr>
+                <td colSpan={3} className="empty">
+                  还没有仓库——在 Obsidian 插件设置里填好账号并同步一次即可自动创建
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

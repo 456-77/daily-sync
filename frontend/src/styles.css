@@ -483,7 +483,8 @@ button.danger:hover:not(:disabled) {
 
 .cal-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  /* 第一列是周记列（W），其后七列是周一到周日 */
+  grid-template-columns: 26px repeat(7, 1fr);
   gap: 4px;
 }
 
@@ -492,6 +493,49 @@ button.danger:hover:not(:disabled) {
   color: var(--muted);
   font-size: 12px;
   padding: 4px 0;
+}
+
+.cal-weekdays .cal-week-head {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* 周记列：每行行首一格，显示该行所在 ISO 周号，有周记时右下角打点 */
+.cal-week-cell {
+  position: relative;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.cal-week-cell:hover:not(:disabled) {
+  background: rgba(47, 111, 235, 0.1);
+  color: var(--primary);
+}
+
+.cal-week-cell.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+.cal-week-dot {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+
+.cal-week-cell.active .cal-week-dot {
+  background: #fff;
 }
 
 .cal-cell {
@@ -818,8 +862,235 @@ button.danger:hover:not(:disabled) {
     min-height: 38px;
   }
 
+  /* 八列在窄屏要收一收：周记列窄一点、间距与字号减小 */
+  .cal-grid {
+    grid-template-columns: 22px repeat(7, 1fr);
+    gap: 3px;
+  }
+
+  .cal-week-cell {
+    font-size: 11px;
+  }
+
   /* 「显示/隐藏」浮在输入框内部，不适用触摸目标加高 */
   .password-toggle {
     min-height: 0;
   }
+}
+
+/* ---------- Markdown 正文（GFM + 代码高亮） ---------- */
+/*
+ * MarkdownView 渲染结果的补充样式。排版主体沿用上面的 .record-content 规则，
+ * 这里只处理 react-markdown / remark-gfm 新增的元素。
+ */
+
+/*
+ * 全局 input 规则（白底、1px 边框、8px 10px 内边距）会把 GFM 任务列表生成的
+ * 复选框撑成一个大方块，必须复位回原生尺寸。
+ */
+.md-body input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  margin: 0 6px 0 0;
+  border: 1px solid #b8bfc7;
+  border-radius: 3px;
+  accent-color: var(--primary);
+  vertical-align: -2px;
+  flex: none;
+}
+
+/* 任务列表：去掉项目符号，复选框与首行文字对齐 */
+.md-body li.task-list-item {
+  list-style: none;
+  margin-left: -20px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.md-body li.task-list-item > input[type="checkbox"] {
+  margin-top: 7px;
+}
+
+/* 勾选后的条目置灰，与被划掉的任务视觉一致（:has 在 iOS 15.4+ / 现代浏览器可用） */
+.md-body li.task-list-item:has(> input[type="checkbox"]:checked) {
+  color: var(--muted);
+}
+
+/* GFM 表格：按内容宽度排版，超出卡片时横向滚动而不是把页面撑破 */
+.md-body table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.md-body a {
+  color: var(--primary);
+}
+
+.md-body hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 20px 0;
+}
+
+.md-body h4,
+.md-body h5,
+.md-body h6 {
+  margin: 18px 0 8px;
+}
+
+.md-body img {
+  border-radius: 6px;
+}
+
+.md-body li + li {
+  margin-top: 2px;
+}
+
+/* 代码高亮配色：highlight.js 的 github 风格精简版，只覆盖常用 token */
+.md-body .hljs-comment,
+.md-body .hljs-quote {
+  color: #6a737d;
+  font-style: italic;
+}
+
+.md-body .hljs-keyword,
+.md-body .hljs-selector-tag,
+.md-body .hljs-literal,
+.md-body .hljs-type,
+.md-body .hljs-doctag {
+  color: #d73a49;
+}
+
+.md-body .hljs-string,
+.md-body .hljs-regexp,
+.md-body .hljs-addition,
+.md-body .hljs-meta .hljs-string {
+  color: #032f62;
+}
+
+.md-body .hljs-number,
+.md-body .hljs-symbol,
+.md-body .hljs-bullet,
+.md-body .hljs-built_in,
+.md-body .hljs-builtin-name {
+  color: #005cc5;
+}
+
+.md-body .hljs-title,
+.md-body .hljs-section,
+.md-body .hljs-name,
+.md-body .hljs-selector-id,
+.md-body .hljs-selector-class {
+  color: #6f42c1;
+}
+
+.md-body .hljs-attr,
+.md-body .hljs-attribute,
+.md-body .hljs-variable,
+.md-body .hljs-template-variable,
+.md-body .hljs-params {
+  color: #e36209;
+}
+
+.md-body .hljs-meta {
+  color: #6a737d;
+}
+
+.md-body .hljs-deletion {
+  color: #b31d28;
+  background: #ffeef0;
+}
+
+.md-body .hljs-emphasis {
+  font-style: italic;
+}
+
+.md-body .hljs-strong {
+  font-weight: 600;
+}
+
+/* ---------- 待办事项（只读） ---------- */
+.todo-days {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.todo-day {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.todo-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.todo-date {
+  font-weight: 600;
+}
+
+.todo-progress {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.todo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* 只读复选框自绘，避免全局 input 样式干扰 */
+.todo-box {
+  position: relative;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 3px;
+  border: 1px solid #b8bfc7;
+  border-radius: 3px;
+}
+
+.todo-box.checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.todo-box.checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.todo-item.done .todo-text {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.todo-text {
+  word-break: break-word;
 }

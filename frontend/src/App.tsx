@@ -4,13 +4,15 @@ import type { VaultInfo } from "./types";
 import Login from "./Login";
 import Vaults from "./Vaults";
 import Records from "./Records";
+import Todos from "./Todos";
 import AuditLogs from "./AuditLogs";
 
-type Tab = "vaults" | "records" | "audit";
+type Tab = "vaults" | "records" | "todos" | "audit";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "vaults", label: "仓库" },
   { key: "records", label: "日记浏览" },
+  { key: "todos", label: "待办" },
   { key: "audit", label: "日志" },
 ];
 
@@ -105,6 +107,12 @@ export default function App() {
         {tab === "records" &&
           (selectedVault != null ? (
             <Records vaultId={selectedVault} />
+          ) : (
+            <div className="panel empty">请先在「仓库」页创建或选择一个仓库</div>
+          ))}
+        {tab === "todos" &&
+          (selectedVault != null ? (
+            <Todos vaultId={selectedVault} />
           ) : (
             <div className="panel empty">请先在「仓库」页创建或选择一个仓库</div>
           ))}

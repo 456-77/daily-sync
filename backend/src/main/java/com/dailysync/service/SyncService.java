@@ -158,7 +158,10 @@ public class SyncService {
         return new SyncPullResponse(vault.getVersion(), records.size() == limit, records);
     }
 
-    /** 推送路径校验：相对路径、无反斜杠、无 . / .. / 空段、.md 结尾。 */
+    /** 允许同步的扩展名：库内正文是 .md，插件另外推送的待办数据文件是 .json */
+    private static final List<String> ALLOWED_EXTENSIONS = List.of(".md", ".json");
+
+    /** 推送路径校验：相对路径、无反斜杠、无 . / .. / 空段、扩展名在白名单内。 */
     private void validatePath(String path) {
         String problem = null;
         if (path.startsWith("/") || path.contains("\\")) {
@@ -171,8 +174,8 @@ public class SyncService {
                 }
             }
         }
-        if (problem == null && !path.endsWith(".md")) {
-            problem = "M2 只同步 .md 文件";
+        if (problem == null && ALLOWED_EXTENSIONS.stream().noneMatch(path::endsWith)) {
+            problem = "只同步 .md / .json 文件";
         }
         if (problem != null) {
             throw new BizException(HttpStatus.BAD_REQUEST, "path: " + path + " " + problem);

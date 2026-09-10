@@ -26,6 +26,13 @@ export interface DateCount {
   count: number;
 }
 
+/** 周记元数据（日历周记列打点用；正文按 path 另取） */
+export interface WeeklyRecord {
+  week: string;
+  path: string;
+  updatedAt: string;
+}
+
 /** 审计日志条目（M5）：action 为事件类型字符串，中文标签在 AuditLogs 里映射 */
 export interface AuditLog {
   id: number;

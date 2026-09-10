@@ -235,12 +235,25 @@ button.danger:hover:not(:disabled) {
   color: var(--text);
 }
 
-/* 用户名最长 32 字符，超长时省略而不是把顶栏撑开 */
+/* 用户名：进入个人主页的入口。最长 32 字符，超长省略而不是把顶栏撑开 */
 .topbar-user {
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* 重置 button 外观，视觉上仍是顶栏文字 */
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.topbar-user:hover:not(:disabled) {
+  background: none;
+  color: var(--text);
+  text-decoration: underline;
 }
 
 .vault-chip {
@@ -1092,4 +1105,81 @@ button.danger:hover:not(:disabled) {
 
 .todo-text {
   word-break: break-word;
+}
+
+/* ---------- 个人主页 ---------- */
+.profile-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+  font-size: 13px;
+}
+
+.profile-meta-row {
+  display: flex;
+  gap: 10px;
+}
+
+.profile-meta-label {
+  flex: 0 0 68px;
+  color: var(--muted);
+}
+
+.profile-grid {
+  display: grid;
+  /* min(300px, 100%) 保证窄屏下不会因为最小宽度而撑破容器 */
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.profile-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px 18px;
+}
+
+.profile-card h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.profile-hint {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.profile-field input {
+  width: 100%;
+}
+
+.profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.profile-msg {
+  font-size: 13px;
+}
+
+.profile-msg.ok {
+  color: var(--ok);
+}
+
+.profile-msg.err {
+  color: var(--danger);
 }

@@ -13,6 +13,15 @@ export interface VaultInfo {
   createdAt: string;
 }
 
+/** 当前用户资料（/api/v1/me 响应）。昵称与邮箱未设置时为 null */
+export interface UserInfo {
+  id: number;
+  username: string;
+  nickName: string | null;
+  email: string | null;
+  createdAt: string;
+}
+
 export interface DailyRecord {
   id: number;
   path: string;

@@ -38,7 +38,9 @@ public class AuditService {
         REGISTER("注册"),
         LOGIN_SUCCESS("登录成功"),
         LOGIN_FAIL("登录失败"),
-        VAULT_CREATE("创建仓库");
+        VAULT_CREATE("创建仓库"),
+        PROFILE_UPDATE("更新资料"),
+        PASSWORD_CHANGE("修改密码");
 
         public final String label;
 

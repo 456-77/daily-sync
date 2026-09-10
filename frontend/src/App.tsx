@@ -5,9 +5,11 @@ import Login from "./Login";
 import Vaults from "./Vaults";
 import Records from "./Records";
 import Todos from "./Todos";
+import Profile from "./Profile";
 import AuditLogs from "./AuditLogs";
 
-type Tab = "vaults" | "records" | "todos" | "audit";
+/** profile 不在 TABS 里：由顶栏用户名进入，不占主导航的位置 */
+type Tab = "vaults" | "records" | "todos" | "audit" | "profile";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "vaults", label: "仓库" },
@@ -89,7 +91,14 @@ export default function App() {
               ))}
             </select>
           )}
-          <span className="topbar-user">{getAuth()?.username}</span>
+          <button
+            type="button"
+            className="topbar-user"
+            onClick={() => setTab("profile")}
+            title="个人主页"
+          >
+            {getAuth()?.username}
+          </button>
           <a
             href="#"
             onClick={(e) => {
@@ -117,6 +126,7 @@ export default function App() {
             <div className="panel empty">请先在「仓库」页创建或选择一个仓库</div>
           ))}
         {tab === "audit" && <AuditLogs />}
+        {tab === "profile" && <Profile />}
       </main>
     </div>
   );

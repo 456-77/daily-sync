@@ -14,6 +14,8 @@ frontend/dist/
 # 环境变量与本地配置
 .env
 *.local.yml
+# 服务器凭证记录（含真实密码，永不入库）
+credentials.md
 
 # Obsidian 插件（自带独立 git 仓库，避免嵌套仓库误提交）
 quick-daily-note/

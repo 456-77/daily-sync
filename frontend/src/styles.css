@@ -628,9 +628,10 @@ button.danger:hover:not(:disabled) {
   padding: 18px 22px;
   background: #fff;
   line-height: 1.7;
-  max-height: 70vh;
-  overflow: auto;
-  /* 长链接 / 长单词在段落里折行，不要顶破卡片（pre 内代码不受影响，保留横向滚动） */
+  /*
+   * 不限高度：长周记/日记随页面一起滚动，避免卡片里再出现一个内部滚动条。
+   * 代码块与表格的横向滚动由它们自己的 overflow 负责，不受影响。
+   */
   overflow-wrap: break-word;
 }
 
@@ -830,10 +831,8 @@ button.danger:hover:not(:disabled) {
     word-break: break-word;
   }
 
-  /* 正文取消内部滚动：与外层页面滚动嵌套后很难操作，改为随页面滚动 */
   .record-content {
     padding: 14px;
-    max-height: none;
   }
 
   .record-content pre {

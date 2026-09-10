@@ -13,22 +13,6 @@ export interface VaultInfo {
   createdAt: string;
 }
 
-export interface TokenInfo {
-  id: number;
-  name: string;
-  status: number;
-  lastUsedAt: string | null;
-  createdAt: string;
-}
-
-export interface TokenCreated {
-  id: number;
-  name: string;
-  /** 明文令牌只在签发响应出现一次 */
-  token: string;
-  createdAt: string;
-}
-
 export interface DailyRecord {
   id: number;
   path: string;

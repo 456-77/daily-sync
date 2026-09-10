@@ -3,15 +3,13 @@ import { api, getAuth, setAuth } from "./api";
 import type { VaultInfo } from "./types";
 import Login from "./Login";
 import Vaults from "./Vaults";
-import Tokens from "./Tokens";
 import Records from "./Records";
 import AuditLogs from "./AuditLogs";
 
-type Tab = "vaults" | "tokens" | "records" | "audit";
+type Tab = "vaults" | "records" | "audit";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "vaults", label: "仓库" },
-  { key: "tokens", label: "同步令牌" },
   { key: "records", label: "日记浏览" },
   { key: "audit", label: "日志" },
 ];
@@ -34,7 +32,13 @@ export default function App() {
       .get<VaultInfo[]>("/api/v1/vaults")
       .then((list) => {
         setVaults(list);
-        setSelectedVault((cur) => cur ?? list[0]?.id ?? null);
+        // 恢复上次选中的仓库（仍在列表中才有效），否则默认第一个
+        setSelectedVault((cur) => {
+          if (cur != null && list.some((v) => v.id === cur)) return cur;
+          const saved = Number(localStorage.getItem("daily-sync-vault-id"));
+          if (saved && list.some((v) => v.id === saved)) return saved;
+          return list[0]?.id ?? null;
+        });
       })
       .catch(() => {});
   }, []);
@@ -52,8 +56,6 @@ export default function App() {
     return <Login onDone={() => setLoggedIn(true)} />;
   }
 
-  const currentVault = vaults.find((v) => v.id === selectedVault) ?? null;
-
   return (
     <div className="app">
       <header className="topbar">
@@ -70,7 +72,21 @@ export default function App() {
           ))}
         </nav>
         <span className="topbar-right">
-          {currentVault && <span className="vault-chip">仓库：{currentVault.name}</span>}
+          {vaults.length > 0 && (
+            <select
+              className="vault-select"
+              value={selectedVault ?? undefined}
+              onChange={(e) => selectVault(Number(e.target.value))}
+              title="切换当前仓库"
+            >
+              {vaults.length === 0 && <option value="">暂无仓库</option>}
+              {vaults.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
+                </option>
+              ))}
+            </select>
+          )}
           <span>{getAuth()?.username}</span>
           <a
             href="#"
@@ -85,20 +101,7 @@ export default function App() {
         </span>
       </header>
       <main className="content">
-        {tab === "vaults" && (
-          <Vaults
-            vaults={vaults}
-            reload={reloadVaults}
-            selectedId={selectedVault}
-            onSelect={selectVault}
-          />
-        )}
-        {tab === "tokens" &&
-          (selectedVault != null ? (
-            <Tokens vaultId={selectedVault} />
-          ) : (
-            <div className="panel empty">请先在「仓库」页创建或选择一个仓库</div>
-          ))}
+        {tab === "vaults" && <Vaults vaults={vaults} reload={reloadVaults} />}
         {tab === "records" &&
           (selectedVault != null ? (
             <Records vaultId={selectedVault} />

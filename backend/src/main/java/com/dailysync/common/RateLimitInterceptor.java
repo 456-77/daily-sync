@@ -16,14 +16,15 @@ import java.nio.charset.StandardCharsets;
  * 限流拦截器：挂在两个最容易被刷的入口——
  *
  * <ul>
- *   <li>/api/v1/auth/**（登录/注册）：按客户端 IP，防密码暴力破解（默认 10 次/分钟）</li>
- *   <li>/api/v1/sync：按同步令牌哈希（无令牌则按 IP），防令牌爆破与滥用（默认 120 次/分钟，
- *       正常插件 5 分钟一轮 push+pull 远够）</li>
+ *   <li>/api/v1/auth/**（登录/注册）：按客户端 IP，防密码暴力破解（默认 10 次/分钟）。
+ *       插件登录也走这里，多设备同 IP 下 10 次/分钟仍绰绰有余</li>
+ *   <li>/api/v1/sync：按客户端 IP（默认 120 次/分钟）。M5.1 起同步走 JWT，
+ *       无效 JWT 在 AuthInterceptor 就被纯 HMAC 校验拒掉（不查库），
+ *       这里只为保护后续的仓库解析与同步查询不被洪水打穿</li>
  * </ul>
  *
  * <p>超限返回 429 + Retry-After 头。注册顺序在鉴权拦截器之前（见
  * {@link com.dailysync.config.WebMvcConfig}），被拒请求不会打到数据库。
- * 令牌哈希直接对请求头现算，不查库——无效令牌的洪水也消耗在内存计数上。
  */
 @Component
 @RequiredArgsConstructor
@@ -51,9 +52,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         }
         String path = request.getRequestURI();
         boolean authApi = path.startsWith("/api/v1/auth/");
-        String key = authApi
-                ? "auth:" + clientIp.of(request)
-                : "sync:" + syncKey(request);
+        String key = (authApi ? "auth:" : "sync:") + clientIp.of(request);
         int limit = authApi ? authPerMinute : syncPerMinute;
 
         int retryAfterSec = rateLimiter.tryAcquire(key, limit, 60);
@@ -68,14 +67,5 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         response.setContentLength(body.length);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         return false;
-    }
-
-    /** sync 维度的 key：有令牌按令牌哈希（同设备换 IP 不放行），没令牌按 IP（爆破无凭证请求的场景）。 */
-    private String syncKey(HttpServletRequest request) {
-        String token = request.getHeader("X-Sync-Token");
-        if (token != null && !token.isBlank()) {
-            return HashUtil.sha256Hex(token);
-        }
-        return "ip:" + clientIp.of(request);
     }
 }

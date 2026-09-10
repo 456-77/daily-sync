@@ -14,7 +14,8 @@ import java.util.List;
 
 /**
  * 日记查询接口（JWT 保护）：前端按日浏览已同步的日记。
- * 数据只能看不能改——写入只能走同步接口（X-Sync-Token）。
+ * 数据只能看不能改——写入只能走同步接口（M5.1 起同样用 JWT 鉴权）。
+ * @id：仓库id
  */
 @RestController
 @RequestMapping("/api/v1/vaults/{id}/records")

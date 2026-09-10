@@ -1,21 +1,23 @@
 package com.dailysync.controller;
 
-import com.dailysync.auth.SyncContext;
+import com.dailysync.auth.UserContext;
 import com.dailysync.common.ApiResponse;
 import com.dailysync.dto.SyncPullResponse;
 import com.dailysync.dto.SyncPushRequest;
 import com.dailysync.dto.SyncPushResponse;
 import com.dailysync.service.SyncService;
+import com.dailysync.service.VaultService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * 数据同步接口（同步令牌鉴权，不走 JWT）。
+ * 数据同步接口（JWT 保护，与 Web 端同一套 accessToken）。
  *
- * <p>请求头携带 {@code X-Sync-Token: dst_...}（在 {@link VaultController} 签发），
- * 令牌绑定的仓库即本次同步的目标仓库。无效 / 已撤销令牌统一返回
- * 401「同步令牌无效或已撤销」（不区分原因，防探测）。
+ * <p>插件用账号密码调 {@link AuthController} 的 login 换取 accessToken（refreshToken
+ * 30 天轮换续期），此后每个同步请求携带 {@code Authorization: Bearer <token>}。
+ * 目标仓库由查询参数 {@code vault} 指定（插件填 Obsidian 仓库名），
+ * 该用户下不存在时<b>自动创建</b>——仓库只能由同步产生，Web 端不提供手动创建。
  */
 @RestController
 @RequestMapping("/api/v1/sync")
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 public class SyncController {
 
     private final SyncService syncService;
+    private final VaultService vaultService;
 
     /**
      * 批量推送记录（幂等）。
@@ -35,17 +38,20 @@ public class SyncController {
      * 响应中对应条目 status=unchanged；有实际变更才 version+1 并返回 status=updated。
      * 客户端据此可安全重试（网络重发不会产生重复变更）。
      *
-     * <p>错误：400 参数校验失败 / 路径不合法 / 单批出现重复路径。
+     * <p>错误：400 参数校验失败 / 路径不合法 / 单批出现重复路径 / vault 缺失或超 64 字符。
      */
     @PostMapping
-    public ApiResponse<SyncPushResponse> push(@Valid @RequestBody SyncPushRequest req) {
-        return ApiResponse.ok(syncService.push(SyncContext.vaultId(), req));
+    public ApiResponse<SyncPushResponse> push(@RequestParam("vault") String vault,
+                                              @Valid @RequestBody SyncPushRequest req) {
+        Long vaultId = vaultService.findOrCreateVault(UserContext.userId(), vault).getId();
+        return ApiResponse.ok(syncService.push(vaultId, req));
     }
 
     /**
      * 增量拉取：返回 version 大于 since 的记录（按 version、id 升序）。
      *
-     * <p>参数：since 为上次已同步到的仓库版本号（首次全量拉取传 0）；
+     * <p>参数：vault 为目标仓库名（不存在时自动创建并返回空列表）；
+     * since 为上次已同步到的仓库版本号（首次全量拉取传 0）；
      * limit 自动收敛到 1~500（默认 200）。删除的记录以墓碑形式下发（deleted=true）。
      *
      * <p>翻页规则：hasMore=false 时下次 since 用响应里的 vaultVersion；
@@ -54,9 +60,11 @@ public class SyncController {
      * 同一版本组必然一页装下，不会死循环。
      */
     @GetMapping
-    public ApiResponse<SyncPullResponse> pull(@RequestParam(name = "since", defaultValue = "0") long since,
+    public ApiResponse<SyncPullResponse> pull(@RequestParam("vault") String vault,
+                                              @RequestParam(name = "since", defaultValue = "0") long since,
                                               @RequestParam(name = "limit", defaultValue = "200") int limit) {
+        Long vaultId = vaultService.findOrCreateVault(UserContext.userId(), vault).getId();
         int clamped = Math.min(Math.max(limit, 1), 500);
-        return ApiResponse.ok(syncService.pull(SyncContext.vaultId(), since, clamped));
+        return ApiResponse.ok(syncService.pull(vaultId, since, clamped));
     }
 }

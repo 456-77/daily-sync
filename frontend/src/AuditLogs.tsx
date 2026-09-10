@@ -8,9 +8,6 @@ const ACTION_LABELS: Record<string, string> = {
   LOGIN_SUCCESS: "登录成功",
   LOGIN_FAIL: "登录失败",
   VAULT_CREATE: "创建仓库",
-  TOKEN_ISSUE: "签发令牌",
-  TOKEN_REVOKE: "撤销令牌",
-  SYNC_AUTH_FAIL: "同步鉴权失败",
 };
 
 /** 失败类事件标红，其余按中性色显示 */

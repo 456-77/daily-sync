@@ -14,8 +14,8 @@ import java.util.List;
 
 /**
  * 审计日志查询接口（JWT 保护，只能看自己的）。
- * 记录登录成败、令牌签发/撤销、同步鉴权失败等安全事件，只增不改；
- * 写入点分布在 AuthService / VaultService / SyncTokenInterceptor。
+ * 记录注册、登录成败、仓库自动创建等安全事件，只增不改；
+ * 写入点分布在 AuthService / VaultService。
  */
 @RestController
 @RequestMapping("/api/v1/audit-logs")

@@ -2,60 +2,33 @@ package com.dailysync.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.dailysync.common.BizException;
-import com.dailysync.common.HashUtil;
-import com.dailysync.dto.CreateSyncTokenRequest;
-import com.dailysync.dto.CreateVaultRequest;
-import com.dailysync.dto.SyncTokenCreatedResponse;
-import com.dailysync.dto.SyncTokenInfoResponse;
 import com.dailysync.dto.VaultResponse;
-import com.dailysync.entity.SyncToken;
 import com.dailysync.entity.Vault;
-import com.dailysync.mapper.SyncTokenMapper;
 import com.dailysync.mapper.VaultMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.HexFormat;
 import java.util.List;
 
 /**
- * 仓库与同步令牌管理。
- * 归属校验统一走 {@link #ownedVault}：不存在与非本人一律 404，不暴露仓库是否存在。
- * 建仓库、签发/撤销令牌都会写审计日志（M5），IP 由 Controller 传入。
+ * 仓库管理。M5.1 起：仓库只能由插件同步时按 Obsidian 仓库名自动创建
+ * （{@link #findOrCreateVault}），Web 端不再提供手动创建入口；
+ * 读取接口（列表/按日查询）仍按用户隔离。
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class VaultService {
 
-    private static final SecureRandom RANDOM = new SecureRandom();
-
     private final VaultMapper vaultMapper;
-    private final SyncTokenMapper syncTokenMapper;
     private final AuditService auditService;
 
-    /** 创建仓库（用户内名称唯一，冲突 409），新仓库 version=0。 */
-    @Transactional
-    public VaultResponse create(Long userId, CreateVaultRequest req, String ip) {
-        Long count = vaultMapper.selectCount(Wrappers.<Vault>lambdaQuery()
-                .eq(Vault::getUserId, userId).eq(Vault::getName, req.name()));
-        if (count != null && count > 0) {
-            throw new BizException(HttpStatus.CONFLICT, "同名仓库已存在");
-        }
-        Vault vault = new Vault();
-        vault.setUserId(userId);
-        vault.setName(req.name());
-        vault.setVersion(0L);
-        vault.setCreatedAt(LocalDateTime.now());
-        vaultMapper.insert(vault);
-        auditService.record(userId, vault.getId(), AuditService.Action.VAULT_CREATE,
-                "仓库名: " + vault.getName(), ip);
-        return toResponse(vault);
-    }
-
+    /** 列出当前用户的所有仓库（按 id 升序），含各自最新 version。 */
     public List<VaultResponse> list(Long userId) {
         return vaultMapper.selectList(Wrappers.<Vault>lambdaQuery()
                         .eq(Vault::getUserId, userId).orderByAsc(Vault::getId)).stream()
@@ -63,51 +36,44 @@ public class VaultService {
                 .toList();
     }
 
-    /** 签发同步令牌（dst_ + 32 字节随机数的十六进制），一个仓库可签多枚（一台设备一枚）。 */
+    /**
+     * 按名取仓库，不存在则自动创建（插件首同步建仓的唯一入口）。
+     *
+     * <p>两台设备同时首同步同名仓库会先后撞 uk_user_name 唯一键，
+     * 捕获 DuplicateKey 后重查即可拿到先插入的那行。新仓库 version=0（拉取游标起点），
+     * 创建动作写审计（VAULT_CREATE，detail 注明插件自动创建）。
+     *
+     * @throws BizException 名称为空 / 超 64 字符
+     */
     @Transactional
-    public SyncTokenCreatedResponse issueToken(Long userId, Long vaultId, CreateSyncTokenRequest req, String ip) {
-        Vault vault = ownedVault(userId, vaultId);
-
-        byte[] bytes = new byte[32];
-        RANDOM.nextBytes(bytes);
-        String token = "dst_" + HexFormat.of().formatHex(bytes);
-
-        SyncToken entity = new SyncToken();
-        entity.setVaultId(vault.getId());
-        entity.setName(req.name() == null ? "" : req.name().trim());
-        entity.setTokenHash(HashUtil.sha256Hex(token));
-        entity.setStatus(1);
-        entity.setCreatedAt(LocalDateTime.now());
-        syncTokenMapper.insert(entity);
-        // 审计只记备注名与令牌 id，永不记明文或哈希
-        auditService.record(userId, vault.getId(), AuditService.Action.TOKEN_ISSUE,
-                "令牌 #" + entity.getId() + "（" + entity.getName() + "）", ip);
-        // 明文 token 只出现在这一次响应里，之后库里只有哈希
-        return new SyncTokenCreatedResponse(entity.getId(), entity.getName(), token, entity.getCreatedAt());
-    }
-
-    /** 列出仓库的全部令牌（不含明文）。 */
-    public List<SyncTokenInfoResponse> listTokens(Long userId, Long vaultId) {
-        ownedVault(userId, vaultId);
-        return syncTokenMapper.selectList(Wrappers.<SyncToken>lambdaQuery()
-                        .eq(SyncToken::getVaultId, vaultId).orderByAsc(SyncToken::getId)).stream()
-                .map(t -> new SyncTokenInfoResponse(t.getId(), t.getName(), t.getStatus(),
-                        t.getLastUsedAt(), t.getCreatedAt()))
-                .toList();
-    }
-
-    /** 撤销令牌（status=0），立即生效且不可恢复。 */
-    @Transactional
-    public void revokeToken(Long userId, Long vaultId, Long tokenId, String ip) {
-        ownedVault(userId, vaultId);
-        SyncToken token = syncTokenMapper.selectById(tokenId);
-        if (token == null || !token.getVaultId().equals(vaultId)) {
-            throw new BizException(HttpStatus.NOT_FOUND, "令牌不存在");
+    public Vault findOrCreateVault(Long userId, String name) {
+        String trimmed = name == null ? "" : name.trim();
+        if (trimmed.isEmpty() || trimmed.length() > 64) {
+            throw new BizException(HttpStatus.BAD_REQUEST, "vault: 仓库名长度需要 1-64");
         }
-        token.setStatus(0);
-        syncTokenMapper.updateById(token);
-        auditService.record(userId, vaultId, AuditService.Action.TOKEN_REVOKE,
-                "令牌 #" + token.getId() + "（" + token.getName() + "）", ip);
+        Vault existing = selectByName(userId, trimmed);
+        if (existing != null) {
+            return existing;
+        }
+        Vault vault = new Vault();
+        vault.setUserId(userId);
+        vault.setName(trimmed);
+        vault.setVersion(0L);
+        vault.setCreatedAt(LocalDateTime.now());
+        try {
+            vaultMapper.insert(vault);
+            auditService.record(userId, vault.getId(), AuditService.Action.VAULT_CREATE,
+                    "插件同步自动创建仓库: " + trimmed, null);
+            return vault;
+        } catch (DuplicateKeyException e) {
+            // 并发首同步：另一台设备先建了同名仓库，重查拿现成的
+            return selectByName(userId, trimmed);
+        }
+    }
+
+    private Vault selectByName(Long userId, String name) {
+        return vaultMapper.selectOne(Wrappers.<Vault>lambdaQuery()
+                .eq(Vault::getUserId, userId).eq(Vault::getName, name));
     }
 
     /** 取属于当前用户的仓库；不存在或不是本人的统一 404，不暴露仓库是否存在（供其他 Service 复用）。 */

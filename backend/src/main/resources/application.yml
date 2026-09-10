@@ -26,8 +26,9 @@ daily-sync:
   jwt-access-ttl-minutes: 120
   # 注册邀请码：留空 = 开放注册；配置后注册必须携带
   invite-code: ${INVITE_CODE:}
-  # 限流（M5）：/api/v1/auth/** 按客户端 IP；/api/v1/sync 按同步令牌哈希（无令牌按 IP）。
-  # 插件正常节奏是 5 分钟一轮 push+pull，120/分钟上限绰绰有余；本机联调可整体关闭
+  # 限流（M5）：/api/v1/auth/** 与 /api/v1/sync 均按客户端 IP。
+  # 登录 10/分钟防密码爆破（插件登录也走此桶，多设备同 IP 足够）；
+  # 同步 120/分钟——M5.1 起走 JWT，无效令牌在 HMAC 校验层即被拒；本机联调可整体关闭
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     auth-per-minute: 10

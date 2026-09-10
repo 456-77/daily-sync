@@ -19,8 +19,7 @@ import java.util.List;
  * 库里只存枚举 name()，前端负责翻译成中文标签。
  *
  * <p>查询按用户隔离（user_id = 当前登录用户），新→旧按 id 游标翻页。
- * 无法归属到用户的行（如乱猜令牌的探测，见 {@code SyncTokenInterceptor}）
- * user_id 为 NULL，不出现在任何人的列表里，只能查库看。
+ * 无法归属到用户的行（user_id 为 NULL）不出现在任何人的列表里，只能查库看。
  */
 @Slf4j
 @Service
@@ -30,15 +29,16 @@ public class AuditService {
     /** detail 列宽度，超长截断（VARCHAR(255)） */
     private static final int DETAIL_MAX = 255;
 
-    /** 事件类型；新增事件时在此追加（name 落库，label 仅便于读日志） */
+    /**
+     * 事件类型；新增事件时在此追加（name 落库，label 仅便于读日志）。
+     * M5.1 起同步令牌体系退役，TOKEN_ISSUE / TOKEN_REVOKE / SYNC_AUTH_FAIL
+     * 不再产生新事件（同步鉴权失败即 JWT 过期，走通用 401，不审计）。
+     */
     public enum Action {
         REGISTER("注册"),
         LOGIN_SUCCESS("登录成功"),
         LOGIN_FAIL("登录失败"),
-        VAULT_CREATE("创建仓库"),
-        TOKEN_ISSUE("签发同步令牌"),
-        TOKEN_REVOKE("撤销同步令牌"),
-        SYNC_AUTH_FAIL("同步鉴权失败");
+        VAULT_CREATE("创建仓库");
 
         public final String label;
 

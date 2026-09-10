@@ -1,0 +1,70 @@
+# 自动部署：push 到 master 即构建镜像 → scp 到阿里云服务器 → docker load + compose 重启。
+# Jenkins 方案后续再评估；个人规模 Actions 一条流水线足够。
+#
+# 依赖仓库 Secrets（Settings → Secrets and variables → Actions）：
+#   SSH_HOST  服务器地址（120.26.58.22）
+#   SSH_USER  SSH 用户（root）
+#   SSH_KEY   部署私钥（ed25519，对应服务器 authorized_keys 里的 daily-sync-deploy 公钥）
+# 服务器侧约定：/opt/daily-sync/ 下放 docker-compose.yml 与 .env（首次人工布置）
+name: Build & Deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t daily-sync:latest .
+
+      - name: Export image tarball
+        run: docker save daily-sync:latest | gzip > /tmp/daily-sync.tar.gz
+
+      - name: Prepare SSH key
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          install -m 600 /dev/null ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+
+      - name: Upload image to server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            /tmp/daily-sync.tar.gz "$SSH_USER@$SSH_HOST:/opt/daily-sync/daily-sync.tar.gz"
+
+      - name: Load image and restart service
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "$SSH_USER@$SSH_HOST" '
+            set -e
+            cd /opt/daily-sync
+            gunzip -c daily-sync.tar.gz | docker load
+            docker compose up -d
+            docker image prune -f
+            docker ps --filter name=daily-sync --format "{{.Names}} {{.Status}}"
+            '
+
+      - name: Smoke check
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          sleep 15
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "$SSH_USER@$SSH_HOST" 'curl -fsS http://127.0.0.1:8080/healthz && echo'

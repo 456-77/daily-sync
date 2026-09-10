@@ -21,6 +21,10 @@ services:
     extra_hosts:
       # Linux 上把 host.docker.internal 指到宿主机，容器才能访问宿主端口
       - "host.docker.internal:host-gateway"
+    # 宿主机仅 1.7G 内存（还跑着 MySQL/Redis），限住容器并配合
+    # JVM -XX:MaxRAMPercentage=60（Dockerfile ENTRYPOINT 已带）把堆压在 ~290M
+    mem_limit: 480m
+    memswap_limit: 480m
     logging:
       options:
         max-size: "10m"

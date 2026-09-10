@@ -32,5 +32,5 @@ ENV TZ=Asia/Shanghai
 WORKDIR /app
 COPY --from=backend-build /backend/target/*.jar app.jar
 EXPOSE 8080
-# MaxRAMPercentage 让 JVM 感知容器内存限制，而非吃满宿主机
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
+# MaxRAMPercentage 让 JVM 感知容器内存限制（compose 限 480m → 堆约 290m），而非吃满宿主机
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=60.0", "-jar", "app.jar"]

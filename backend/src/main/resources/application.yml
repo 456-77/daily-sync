@@ -10,7 +10,7 @@ spring:
     # allowPublicKeyRetrieval 是 MySQL 8 caching_sha2_password 首连必需
     url: jdbc:mysql://${DB_HOST:120.26.58.22}:${DB_PORT:3306}/daily_sync?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
     username: daily_sync
-    password: ${DB_PASSWORD:DailySync_2026}
+    password: ${DB_PASSWORD:change-me}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
 mybatis-plus:

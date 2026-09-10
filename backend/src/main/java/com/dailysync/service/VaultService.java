@@ -101,8 +101,8 @@ public class VaultService {
         syncTokenMapper.updateById(token);
     }
 
-    /** 取属于当前用户的仓库；不存在或不是本人的统一 404，不暴露仓库是否存在 */
-    private Vault ownedVault(Long userId, Long vaultId) {
+    /** 取属于当前用户的仓库；不存在或不是本人的统一 404，不暴露仓库是否存在（供其他 Service 复用）。 */
+    public Vault ownedVault(Long userId, Long vaultId) {
         Vault vault = vaultMapper.selectById(vaultId);
         if (vault == null || !vault.getUserId().equals(userId)) {
             throw new BizException(HttpStatus.NOT_FOUND, "仓库不存在");

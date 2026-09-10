@@ -46,6 +46,18 @@ jobs:
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
             /tmp/daily-sync.tar.gz "$SSH_USER@$SSH_HOST:/opt/daily-sync/daily-sync.tar.gz"
 
+      - name: Upload compose file
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          # 服务器上的 compose 最初是人工放的，这里随部署一起同步，
+          # 否则仓库里改了编排（如 healthcheck）线上永远不会生效。覆盖前留一份 .bak
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "$SSH_USER@$SSH_HOST" 'cp -f /opt/daily-sync/docker-compose.yml /opt/daily-sync/docker-compose.yml.bak'
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            docker-compose.yml "$SSH_USER@$SSH_HOST:/opt/daily-sync/docker-compose.yml"
+
       - name: Load image and restart service
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}

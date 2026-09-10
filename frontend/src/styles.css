@@ -455,6 +455,15 @@ button.danger:hover:not(:disabled) {
   align-items: start;
 }
 
+/*
+ * grid 子项默认 min-width:auto，会被正文里的长代码行撑开：外层的
+ * .records-main 先被顶宽，里面的 pre 就永远不用滚动，直接把整页撑出横向滚动条。
+ * 允许收缩后，pre / table 才会按自身的 overflow 正常滚动。
+ */
+.records-layout > * {
+  min-width: 0;
+}
+
 .calendar {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -577,6 +586,8 @@ button.danger:hover:not(:disabled) {
   line-height: 1.7;
   max-height: 70vh;
   overflow: auto;
+  /* 长链接 / 长单词在段落里折行，不要顶破卡片（pre 内代码不受影响，保留横向滚动） */
+  overflow-wrap: break-word;
 }
 
 .record-content h1,
@@ -783,6 +794,19 @@ button.danger:hover:not(:disabled) {
 
   .record-content pre {
     padding: 10px;
+  }
+
+  /* Markdown 默认 h1 字号在手机上会占掉大半屏，按屏幕收敛 */
+  .record-content h1 {
+    font-size: 20px;
+  }
+
+  .record-content h2 {
+    font-size: 17px;
+  }
+
+  .record-content h3 {
+    font-size: 15px;
   }
 
   .chip {

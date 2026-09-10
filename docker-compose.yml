@@ -30,8 +30,9 @@ services:
         max-size: "10m"
         max-file: "3"
     healthcheck:
-      # 镜像里没有 curl/wget，用 bash 的 /dev/tcp 发裸 HTTP 请求探活
-      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf \"GET /healthz HTTP/1.0\\r\\r\" >&3 && head -n1 <&3 | grep -q \" 200\"'"]
+      # 镜像里没有 curl/wget，用 bash 的 /dev/tcp 发裸 HTTP 请求探活。
+      # 请求行必须以完整 CRLF（\r\n）结尾，只写 \r 服务端不认为行结束，会一直挂着直到超时
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf \"GET /healthz HTTP/1.0\\r\\n\\r\\n\" >&3 && head -n1 <&3 | grep -q \" 200\"'"]
       interval: 30s
       timeout: 5s
       retries: 3

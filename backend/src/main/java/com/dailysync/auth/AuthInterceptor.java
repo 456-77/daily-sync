@@ -13,6 +13,11 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.nio.charset.StandardCharsets;
 
+/**
+ * JWT 鉴权拦截器：保护 /api/v1/**（auth 与 sync 除外，见 {@link com.dailysync.config.WebMvcConfig}）。
+ * 校验 Authorization: Bearer 头，成功后把 userId/username 放入 {@link UserContext}
+ * 供 Controller 直接取用；失败统一 401「未登录或令牌已失效」。
+ */
 @Component
 @RequiredArgsConstructor
 public class AuthInterceptor implements HandlerInterceptor {

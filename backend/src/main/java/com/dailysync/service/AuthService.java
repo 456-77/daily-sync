@@ -21,6 +21,12 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 
+/**
+ * 认证服务：注册 / 登录 / 刷新令牌。
+ *
+ * <p>令牌体系：accessToken（JWT，短效）+ refreshToken（随机串，30 天，一次性轮换）。
+ * 两个 token 的明文都不落库，只存 SHA-256 哈希。
+ */
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -36,6 +42,7 @@ public class AuthService {
     @Value("${daily-sync.invite-code:}")
     private String inviteCode;
 
+    /** 注册（配置了邀请码时校验邀请码），成功即签发令牌对，无需再登录。 */
     @Transactional
     public TokenResponse register(RegisterRequest req) {
         if (!inviteCode.isBlank() && !inviteCode.equals(req.getInviteCode())) {
@@ -56,6 +63,7 @@ public class AuthService {
         return issueTokens(user);
     }
 
+    /** 登录：用户名不存在与密码错误同一句话（防撞库探测），禁用账号 403。 */
     public TokenResponse login(LoginRequest req) {
         User user = userMapper.selectOne(
                 Wrappers.<User>lambdaQuery().eq(User::getUsername, req.getUsername()));

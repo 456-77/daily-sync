@@ -1,5 +1,9 @@
 package com.dailysync.auth;
 
+/**
+ * 当前同步请求的仓库信息（SyncTokenInterceptor 写入，请求结束必须 clear，
+ * 防止线程池复用串号）。与 UserContext 同款做法，但走同步令牌鉴权路径。
+ */
 public final class SyncContext {
     private static final ThreadLocal<Long> USER_ID = new ThreadLocal<>();
     private static final ThreadLocal<Long> VAULT_ID = new ThreadLocal<>();

@@ -7,6 +7,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+/**
+ * 全局异常处理：把异常统一转成 ApiResponse JSON（不向前端暴露堆栈，完整堆栈进日志）。
+ */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {

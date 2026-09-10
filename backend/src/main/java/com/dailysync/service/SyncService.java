@@ -23,6 +23,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 同步核心：批量推送（幂等）与增量拉取。
+ *
+ * <p>推送两遍处理：先逐条比对现状判定是否需要变更（内容哈希相同即 no-op），
+ * 整批都无变更时不递增仓库版本号——网络重试、重复推送都不会惊动其他设备。
+ * 拉取以仓库版本号为游标（version &gt; since），删除以墓碑下发。
+ */
 @Service
 @RequiredArgsConstructor
 public class SyncService {
@@ -30,6 +37,10 @@ public class SyncService {
     private final VaultMapper vaultMapper;
     private final DailyRecordMapper recordMapper;
 
+    /**
+     * 批量推送。流程：整批校验 → 逐条判变更 → 有变更才原子递增仓库版本并对变更行落库。
+     * 并发推送同一路径由 (vault_id, path) 唯一键兜底，撞上 DuplicateKey 重试即可（内容相同会变 no-op）。
+     */
     @Transactional
     public SyncPushResponse push(Long vaultId, SyncPushRequest req) {
         // 先整体校验再动手：任何一条不合法，整批拒绝，不产生半截变更
@@ -127,6 +138,11 @@ public class SyncService {
         }
     }
 
+    /**
+     * 增量拉取（version &gt; since，按 version、id 升序）。
+     * 不加事务：vault 与记录是两次自动提交读，极端交错下客户端可能重复收到但不会漏收
+     * （hasMore=false 时游标取 max(vaultVersion, 本页最大 version) 即安全）。
+     */
     public SyncPullResponse pull(Long vaultId, long since, int limit) {
         Vault vault = vaultMapper.selectById(vaultId);
         List<DailyRecord> rows = recordMapper.selectList(Wrappers.<DailyRecord>lambdaQuery()
@@ -142,6 +158,7 @@ public class SyncService {
         return new SyncPullResponse(vault.getVersion(), records.size() == limit, records);
     }
 
+    /** 推送路径校验：相对路径、无反斜杠、无 . / .. / 空段、.md 结尾。 */
     private void validatePath(String path) {
         String problem = null;
         if (path.startsWith("/") || path.contains("\\")) {

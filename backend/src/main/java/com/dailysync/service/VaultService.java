@@ -22,6 +22,10 @@ import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.List;
 
+/**
+ * 仓库与同步令牌管理。
+ * 归属校验统一走 {@link #ownedVault}：不存在与非本人一律 404，不暴露仓库是否存在。
+ */
 @Service
 @RequiredArgsConstructor
 public class VaultService {
@@ -31,6 +35,7 @@ public class VaultService {
     private final VaultMapper vaultMapper;
     private final SyncTokenMapper syncTokenMapper;
 
+    /** 创建仓库（用户内名称唯一，冲突 409），新仓库 version=0。 */
     @Transactional
     public VaultResponse create(Long userId, CreateVaultRequest req) {
         Long count = vaultMapper.selectCount(Wrappers.<Vault>lambdaQuery()
@@ -54,6 +59,7 @@ public class VaultService {
                 .toList();
     }
 
+    /** 签发同步令牌（dst_ + 32 字节随机数的十六进制），一个仓库可签多枚（一台设备一枚）。 */
     @Transactional
     public SyncTokenCreatedResponse issueToken(Long userId, Long vaultId, CreateSyncTokenRequest req) {
         Vault vault = ownedVault(userId, vaultId);
@@ -73,6 +79,7 @@ public class VaultService {
         return new SyncTokenCreatedResponse(entity.getId(), entity.getName(), token, entity.getCreatedAt());
     }
 
+    /** 列出仓库的全部令牌（不含明文）。 */
     public List<SyncTokenInfoResponse> listTokens(Long userId, Long vaultId) {
         ownedVault(userId, vaultId);
         return syncTokenMapper.selectList(Wrappers.<SyncToken>lambdaQuery()
@@ -82,6 +89,7 @@ public class VaultService {
                 .toList();
     }
 
+    /** 撤销令牌（status=0），立即生效且不可恢复。 */
     @Transactional
     public void revokeToken(Long userId, Long vaultId, Long tokenId) {
         ownedVault(userId, vaultId);

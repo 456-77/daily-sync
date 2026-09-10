@@ -20,6 +20,12 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 
+/**
+ * 同步令牌拦截器：保护 /api/v1/sync（不走 JWT）。
+ * 校验 X-Sync-Token 头（哈希查表），顺带确认所属仓库存在、账号未禁用，
+ * 成功后把 userId/vaultId 放入 {@link SyncContext} 并刷新 last_used_at。
+ * 三次查询（令牌→仓库→账号）在个人规模下无所谓，正确性优先。
+ */
 @Component
 @RequiredArgsConstructor
 public class SyncTokenInterceptor implements HandlerInterceptor {

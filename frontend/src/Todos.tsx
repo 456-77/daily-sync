@@ -195,7 +195,10 @@ export default function Todos({ vaultId }: { vaultId: number }) {
       .reverse()
       .map((date) => {
         const all = (todos[date] ?? []).filter((item) => !item.deleted);
-        const visible = onlyPending ? all.filter((item) => !item.done) : all;
+        // 未完成排在已完成上面；组内保持原顺序（Array.sort 是稳定的）
+        const visible = (onlyPending ? all.filter((item) => !item.done) : all)
+          .slice()
+          .sort((a, b) => Number(a.done) - Number(b.done));
         const done = all.filter((item) => item.done).length;
         return { date, items: visible, total: all.length, done };
       })

@@ -1126,7 +1126,38 @@ button.danger:hover:not(:disabled) {
   scroll-margin-top: 68px;
 }
 
-/* ---------- 待办事项（只读） ---------- */
+/* ---------- 待办事项（可编辑，与插件双向同步） ---------- */
+.todo-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.todo-new-input {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.todo-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* 工具栏里的复选框保持原生尺寸，别被全局 input 规则撑开 */
+.todo-filter input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
 .todo-days {
   display: flex;
   flex-direction: column;
@@ -1141,9 +1172,26 @@ button.danger:hover:not(:disabled) {
 
 .todo-day-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
   margin-bottom: 8px;
+}
+
+.todo-collapse {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.todo-collapse:hover:not(:disabled) {
+  background: none;
+  color: var(--text);
 }
 
 .todo-date {
@@ -1152,6 +1200,12 @@ button.danger:hover:not(:disabled) {
 
 .todo-progress {
   color: var(--muted);
+  font-size: 12px;
+}
+
+.todo-carryover {
+  margin-left: auto;
+  padding: 3px 10px;
   font-size: 12px;
 }
 
@@ -1172,15 +1226,18 @@ button.danger:hover:not(:disabled) {
   line-height: 1.5;
 }
 
-/* 只读复选框自绘，避免全局 input 样式干扰 */
+/* 复选框改成 button 自绘（可点击），顺带避开全局 input 样式 */
 .todo-box {
   position: relative;
   flex: none;
   width: 15px;
   height: 15px;
-  margin-top: 3px;
+  margin: 3px 0 0;
+  padding: 0;
   border: 1px solid #b8bfc7;
   border-radius: 3px;
+  background: #fff;
+  cursor: pointer;
 }
 
 .todo-box.checked {
@@ -1200,13 +1257,37 @@ button.danger:hover:not(:disabled) {
   transform: rotate(45deg);
 }
 
+.todo-text {
+  flex: 1 1 0;
+  min-width: 0;
+  word-break: break-word;
+}
+
 .todo-item.done .todo-text {
   color: var(--muted);
   text-decoration: line-through;
 }
 
-.todo-text {
-  word-break: break-word;
+.todo-edit-input {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 2px 6px;
+  font-size: 14px;
+}
+
+.todo-del {
+  flex: none;
+  padding: 2px 8px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.todo-del:hover:not(:disabled) {
+  background: none;
+  color: var(--danger);
 }
 
 /* ---------- 个人主页 ---------- */

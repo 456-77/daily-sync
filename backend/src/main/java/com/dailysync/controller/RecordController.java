@@ -6,6 +6,7 @@ import com.dailysync.dto.DailyRecordResponse;
 import com.dailysync.dto.RecordDateCountResponse;
 import com.dailysync.dto.WeeklyRecordResponse;
 import com.dailysync.service.RecordQueryService;
+import com.dailysync.service.TodoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
@@ -14,8 +15,10 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * 日记查询接口（JWT 保护）：前端按日浏览已同步的日记。
- * 数据只能看不能改——写入只能走同步接口（M5.1 起同样用 JWT 鉴权）。
+ * 日记查询与待办写入（JWT 保护）。
+ *
+ * <p>日记内容只能看不能改——写入走同步接口（插件）或待办写入接口（网页端）。
+ *
  * @id：仓库id
  */
 @RestController
@@ -24,6 +27,7 @@ import java.util.List;
 public class RecordController {
 
     private final RecordQueryService recordQueryService;
+    private final TodoService todoService;
 
     /**
      * 查询某一天的全部记录（含内容，按路径排序）。
@@ -70,5 +74,20 @@ public class RecordController {
     @GetMapping("/file")
     public ApiResponse<DailyRecordResponse> file(@PathVariable Long id, @RequestParam String path) {
         return ApiResponse.ok(recordQueryService.getByPath(UserContext.userId(), id, path));
+    }
+
+    /**
+     * 保存待办数据（网页端增删改后整份提交）。
+     *
+     * <p>body 是完整的待办快照 JSON（与插件约定的同一格式，条目带 id 与 updatedAt）。
+     * 服务端只落库、不合并——条目级合并统一在插件侧实现，避免两处算法漂移：
+     * 网页端提交「读到的快照 + 本地改动」，插件下次同步会按 id 合并两侧。
+     *
+     * <p>错误：400 内容为空或非法 JSON；404 仓库不存在或非本人。
+     */
+    @PostMapping("/todos")
+    public ApiResponse<Void> saveTodos(@PathVariable Long id, @RequestBody String content) {
+        todoService.save(UserContext.userId(), id, content);
+        return ApiResponse.ok(null);
     }
 }

@@ -70,6 +70,26 @@ export interface WeeklyRecord {
   updatedAt: string;
 }
 
+/**
+ * 待办条目。与插件 todos.ts 的 TodoItem、云端快照保持一致：
+ * id 用于双向同步时按条目对齐，updatedAt 决定取哪一侧的版本，
+ * deleted 是墓碑（删除不物理移除，否则另一侧合并会把它当新增复活）。
+ */
+export interface TodoItem {
+  id: string;
+  text: string;
+  done: boolean;
+  updatedAt: number;
+  deleted?: boolean;
+}
+
+/** 待办快照（云端 daily-sync-todos.json 的完整内容） */
+export interface TodoSnapshot {
+  version: number;
+  updatedAt: string;
+  todos: Record<string, TodoItem[]>;
+}
+
 /** 审计日志条目（M5）：action 为事件类型字符串，中文标签在 AuditLogs 里映射 */
 export interface AuditLog {
   id: number;

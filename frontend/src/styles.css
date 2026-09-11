@@ -1024,6 +1024,102 @@ button.danger:hover:not(:disabled) {
   font-weight: 600;
 }
 
+/* ---------- 正文目录（可折叠） ---------- */
+.md-toc {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 14px;
+  background: #fbfcfd;
+  overflow: hidden;
+}
+
+.md-toc-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.md-toc-toggle:hover:not(:disabled) {
+  background: rgba(47, 111, 235, 0.06);
+  color: var(--text);
+}
+
+.md-toc-arrow {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.md-toc-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.md-toc-list {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.md-toc-item {
+  border: none;
+  background: none;
+  padding: 5px 12px;
+  font-size: 13px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.md-toc-item:hover:not(:disabled) {
+  background: rgba(47, 111, 235, 0.08);
+  color: var(--primary);
+}
+
+/* 按标题层级缩进，一眼看出文档结构 */
+.md-toc-h1 {
+  padding-left: 12px;
+  font-weight: 600;
+}
+
+.md-toc-h2 {
+  padding-left: 26px;
+}
+
+.md-toc-h3 {
+  padding-left: 40px;
+}
+
+.md-toc-h4,
+.md-toc-h5,
+.md-toc-h6 {
+  padding-left: 54px;
+}
+
+/* 跳转落点给 sticky 顶栏留出高度，否则标题会被挡住 */
+.md-body h1,
+.md-body h2,
+.md-body h3,
+.md-body h4,
+.md-body h5,
+.md-body h6 {
+  scroll-margin-top: 68px;
+}
+
 /* ---------- 待办事项（只读） ---------- */
 .todo-days {
   display: flex;

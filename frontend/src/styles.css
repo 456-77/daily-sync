@@ -1064,8 +1064,11 @@ button.danger:hover:not(:disabled) {
 }
 
 .md-toc-list {
-  display: flex;
-  flex-direction: column;
+  /*
+   * 这里刻意不用 flex 列布局：在限高（max-height）容器里，flex 子项默认
+   * flex-shrink:1 会被压缩而不是溢出滚动——标题一多（实测 150 个）就会把
+   * 每个条目挤成几像素高，文字重叠成一团。普通块级流 + overflow 才正确。
+   */
   padding: 6px 0;
   border-top: 1px solid var(--line);
   max-height: 40vh;
@@ -1073,10 +1076,13 @@ button.danger:hover:not(:disabled) {
 }
 
 .md-toc-item {
+  display: block;
+  width: 100%;
   border: none;
   background: none;
   padding: 5px 12px;
   font-size: 13px;
+  line-height: 1.5;
   color: var(--text);
   text-align: left;
   cursor: pointer;

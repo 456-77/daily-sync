@@ -7,12 +7,14 @@ package com.dailysync.auth;
 public final class UserContext {
     private static final ThreadLocal<Long> USER_ID = new ThreadLocal<>();
     private static final ThreadLocal<String> USERNAME = new ThreadLocal<>();
+    private static final ThreadLocal<String> ROLE = new ThreadLocal<>();
 
     private UserContext() {}
 
-    public static void set(Long userId, String username) {
+    public static void set(Long userId, String username, String role) {
         USER_ID.set(userId);
         USERNAME.set(username);
+        ROLE.set(role);
     }
 
     public static Long userId() {
@@ -23,9 +25,14 @@ public final class UserContext {
         return USERNAME.get();
     }
 
+    public static String role() {
+        return ROLE.get();
+    }
+
     /** 请求结束后必须清理，防止线程池复用导致串号 */
     public static void clear() {
         USER_ID.remove();
         USERNAME.remove();
+        ROLE.remove();
     }
 }

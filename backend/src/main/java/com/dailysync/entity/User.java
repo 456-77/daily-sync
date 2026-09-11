@@ -22,5 +22,7 @@ public class User {
     private String passwordHash;
     /** 1=正常，0=已禁用（登录与令牌校验都会拒绝） */
     private Integer status;
+    /** USER / ADMIN；ADMIN 可访问 /api/v1/admin/** */
+    private String role;
     private LocalDateTime createdAt;
 }

@@ -120,7 +120,7 @@ public class ProfileService {
 
     private UserInfoResponse toResponse(User user) {
         return new UserInfoResponse(user.getId(), user.getUsername(), user.getNickName(),
-                user.getEmail(), user.getCreatedAt());
+                user.getEmail(), user.getRole(), user.getCreatedAt());
     }
 
     /** 空白一律按「未填」存 NULL，避免库里同时出现 '' 和 NULL 两种空值 */

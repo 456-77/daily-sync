@@ -2,16 +2,21 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import type { AuditLog } from "./types";
 
-/** 后端事件类型 → 中文标签；未知类型兜底显示原字符串 */
-const ACTION_LABELS: Record<string, string> = {
+/** 后端事件类型 → 中文标签；未知类型兜底显示原字符串。管理页也复用这份映射 */
+export const ACTION_LABELS: Record<string, string> = {
   REGISTER: "注册",
   LOGIN_SUCCESS: "登录成功",
   LOGIN_FAIL: "登录失败",
   VAULT_CREATE: "创建仓库",
+  PROFILE_UPDATE: "更新资料",
+  PASSWORD_CHANGE: "修改密码",
+  USER_STATUS_CHANGE: "变更用户状态",
+  USER_RESET_PASSWORD: "重置用户密码",
+  USER_DELETE: "删除用户",
 };
 
 /** 失败类事件标红，其余按中性色显示 */
-const DANGER_ACTIONS = new Set(["LOGIN_FAIL", "SYNC_AUTH_FAIL"]);
+export const DANGER_ACTIONS = new Set(["LOGIN_FAIL", "SYNC_AUTH_FAIL"]);
 
 const PAGE_SIZE = 50;
 

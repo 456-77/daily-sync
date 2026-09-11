@@ -40,7 +40,10 @@ public class AuditService {
         LOGIN_FAIL("登录失败"),
         VAULT_CREATE("创建仓库"),
         PROFILE_UPDATE("更新资料"),
-        PASSWORD_CHANGE("修改密码");
+        PASSWORD_CHANGE("修改密码"),
+        USER_STATUS_CHANGE("变更用户状态"),
+        USER_RESET_PASSWORD("重置用户密码"),
+        USER_DELETE("删除用户");
 
         public final String label;
 

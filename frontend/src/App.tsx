@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, getAuth, setAuth } from "./api";
-import type { VaultInfo } from "./types";
+import type { UserInfo, VaultInfo } from "./types";
 import Login from "./Login";
 import Vaults from "./Vaults";
 import Records from "./Records";
 import Todos from "./Todos";
 import Profile from "./Profile";
+import Admin from "./Admin";
 import AuditLogs from "./AuditLogs";
 
-/** profile 不在 TABS 里：由顶栏用户名进入，不占主导航的位置 */
-type Tab = "vaults" | "records" | "todos" | "audit" | "profile";
+/**
+ * profile 与 admin 都不在 TABS 常量里：前者由顶栏用户名进入，
+ * 后者只对管理员显示（运行时拼进导航）。
+ */
+type Tab = "vaults" | "records" | "todos" | "audit" | "profile" | "admin";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "vaults", label: "仓库" },
@@ -24,6 +28,8 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("records");
   const [vaults, setVaults] = useState<VaultInfo[]>([]);
   const [selectedVault, setSelectedVault] = useState<number | null>(null);
+  /** 是否管理员，决定导航里是否出现「管理」；真正的边界在服务端 */
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const onLogout = () => setLoggedIn(false);
@@ -51,10 +57,25 @@ export default function App() {
     if (loggedIn) reloadVaults();
   }, [loggedIn, reloadVaults]);
 
+  // 角色决定是否显示管理入口；普通用户即使手动改 state 也过不了服务端
+  useEffect(() => {
+    if (!loggedIn) {
+      setIsAdmin(false);
+      return;
+    }
+    api
+      .get<UserInfo>("/api/v1/me")
+      .then((me) => setIsAdmin(me.role === "ADMIN"))
+      .catch(() => setIsAdmin(false));
+  }, [loggedIn]);
+
   const selectVault = useCallback((id: number) => {
     setSelectedVault(id);
     localStorage.setItem("daily-sync-vault-id", String(id));
   }, []);
+
+  /** 管理员才多出「管理」页签，拼在导航末尾 */
+  const visibleTabs = isAdmin ? [...TABS, { key: "admin" as Tab, label: "管理" }] : TABS;
 
   if (!loggedIn) {
     return <Login onDone={() => setLoggedIn(true)} />;
@@ -65,7 +86,7 @@ export default function App() {
       <header className="topbar">
         <span className="brand">Daily Sync</span>
         <nav className="tabs">
-          {TABS.map((t) => (
+          {visibleTabs.map((t) => (
             <button
               key={t.key}
               className={tab === t.key ? "tab tab-active" : "tab"}
@@ -127,6 +148,7 @@ export default function App() {
           ))}
         {tab === "audit" && <AuditLogs />}
         {tab === "profile" && <Profile />}
+        {tab === "admin" && isAdmin && <Admin />}
       </main>
     </div>
   );

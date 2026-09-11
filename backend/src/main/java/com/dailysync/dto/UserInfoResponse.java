@@ -13,5 +13,7 @@ public class UserInfoResponse {
     private String username;
     private String nickName;
     private String email;
+    /** USER / ADMIN；前端据此决定是否显示管理入口，真正的拦截在服务端 */
+    private String role;
     private LocalDateTime createdAt;
 }

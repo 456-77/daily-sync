@@ -19,6 +19,34 @@ export interface UserInfo {
   username: string;
   nickName: string | null;
   email: string | null;
+  /** USER / ADMIN；前端据此决定是否显示管理入口 */
+  role: string;
+  createdAt: string;
+}
+
+/** 管理员视角的用户（比自己的资料多出角色、状态与统计） */
+export interface AdminUser {
+  id: number;
+  username: string;
+  nickName: string | null;
+  email: string | null;
+  role: string;
+  /** 1=正常，0=已禁用 */
+  status: number;
+  createdAt: string;
+  vaultCount: number;
+  recordCount: number;
+}
+
+/** 管理员视角的审计日志（比自己的多一个 username） */
+export interface AdminAuditLog {
+  id: number;
+  userId: number | null;
+  username: string | null;
+  vaultId: number | null;
+  action: string;
+  detail: string;
+  ip: string;
   createdAt: string;
 }
 

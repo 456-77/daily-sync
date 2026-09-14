@@ -1419,18 +1419,22 @@ button.danger:hover:not(:disabled) {
 .todo-list {
   list-style: none;
   margin: 0;
-  padding: 10px 12px 12px;
+  /* 行自带内边距（点亮时是一个圆角块），列表这边只补足到 12px */
+  padding: 6px 6px 8px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
 }
 
 .todo-item {
   display: flex;
   align-items: flex-start;
   gap: 9px;
+  padding: 4px 6px;
+  border-radius: 6px;
   font-size: 14px;
   line-height: 1.55;
+  transition: background-color 0.12s ease;
 }
 
 /* 复选框改成 button 自绘（可点击），顺带避开全局 input 样式 */
@@ -1465,11 +1469,11 @@ button.danger:hover:not(:disabled) {
 }
 
 /*
- * 文字块按内容宽度收（不撑满整行）：短待办时删除键紧跟在文字后面，
- * 不会飘到屏幕最右侧让人对不上号；长待办仍会占满可用宽度正常折行。
+ * 文字块撑满剩余宽度：删除键因此永远贴着行尾，位置不随文字长短变化
+ * （文字短也不会把删除键拉到文字旁边）。
  */
 .todo-text {
-  flex: 0 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   word-break: break-word;
 }
@@ -1489,16 +1493,16 @@ button.danger:hover:not(:disabled) {
 }
 
 /*
- * 删除键默认完全隐藏：
- * - 鼠标设备：悬停（或键盘聚焦）该行时淡入；
- * - 触摸设备：没有 hover，点一下该行点亮（.revealed）。
- * 注意 opacity:0 只是看不见，元素**仍然能被点到**——触摸端第一次点在文字右侧
+ * 删除键固定在行尾（默认完全隐藏）：
+ * - 鼠标设备：悬停该行 → 整行变色 + 删除键出现；
+ * - 触摸设备：没有 hover，点一下该行点亮（.revealed），效果同上；
+ * - 键盘：聚焦到行内任意控件同样点亮。
+ * 注意 opacity:0 只是看不见，元素**仍然能被点到**——触摸端第一次点在行尾
  * 就会直接弹出删除确认，而按钮从头到尾没露过面。所以隐形时必须连点击一起关掉，
  * 显形后再放开。
  */
 .todo-del {
   flex: none;
-  /* 收紧左右内边距，让它贴住文字末端（行间距 9px + 这里 5px） */
   padding: 2px 5px;
   border: none;
   background: none;
@@ -1510,14 +1514,25 @@ button.danger:hover:not(:disabled) {
   line-height: 1;
 }
 
+/* 触摸端的 :hover 会粘住，所以悬停态只在真正带指针悬停的设备上生效 */
 @media (hover: hover) and (pointer: fine) {
-  .todo-item:hover .todo-del,
-  .todo-item:focus-within .todo-del {
+  .todo-item:hover {
+    background: rgba(47, 111, 235, 0.07);
+  }
+
+  .todo-item:hover .todo-del {
     opacity: 1;
     pointer-events: auto;
   }
 }
 
+/* 点开 / 键盘聚焦：与悬停同一种「当前行」样式，删除键在同一位置出现 */
+.todo-item:focus-within,
+.todo-item.revealed {
+  background: rgba(47, 111, 235, 0.07);
+}
+
+.todo-item:focus-within .todo-del,
 .todo-item.revealed .todo-del {
   opacity: 1;
   pointer-events: auto;
@@ -1725,8 +1740,13 @@ button.danger:hover:not(:disabled) {
   }
 
   .todo-list {
-    padding: 8px 10px 10px;
-    gap: 9px;
+    padding: 5px 5px 6px;
+    gap: 4px;
+  }
+
+  /* 触摸端整行就是点击目标，行本身再给一点高度 */
+  .todo-item {
+    padding: 5px 6px;
   }
 
   /* 触摸端删除键靠「点该行」显形，给足点击面积 */

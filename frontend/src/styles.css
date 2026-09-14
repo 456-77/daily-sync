@@ -537,11 +537,6 @@ button.danger:hover:not(:disabled) {
   align-items: start;
 }
 
-/* 有目录时再多一列，且目录排在最左 */
-.records-layout.with-toc {
-  grid-template-columns: auto 320px minmax(0, 1fr);
-}
-
 /*
  * grid 子项默认 min-width:auto，会被正文里的长代码行撑开：外层的
  * .records-main 先被顶宽，里面的 pre 就永远不用滚动，直接把整页撑出横向滚动条。
@@ -1417,22 +1412,17 @@ button.danger:hover:not(:disabled) {
   font-weight: 600;
 }
 
-/* ---------- 目录（挂在页面最左一列；窄屏改为悬浮浮层） ---------- */
+/* ---------- 目录（左栏里的一块，排在文件列表下面；窄屏改为左下角悬浮） ---------- */
 .toc-panel {
   /* 粘在顶栏下方：正文往下读，目录一直跟着 */
   position: sticky;
   top: 68px;
-  width: 88px;
+  width: 100%;
   max-height: calc(100vh - 96px);
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fbfcfd;
   overflow: hidden;
-}
-
-/* 展开是固定宽度的一栏；收起只留「▸ 目录 N」那么宽 */
-.toc-panel-open {
-  width: 200px;
 }
 
 .toc-toggle {
@@ -2100,8 +2090,7 @@ button.danger:hover:not(:disabled) {
  * 也不会遮住正文左侧（浮层可随时收起）。
  */
 @media (max-width: 860px) {
-  .records-layout,
-  .records-layout.with-toc {
+  .records-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 

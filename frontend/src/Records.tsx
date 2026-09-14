@@ -390,8 +390,7 @@ export default function Records({ vaultId }: { vaultId: number }) {
         </PanelHelp>
       </div>
       {error && <div className="form-error">{error}</div>}
-      <div className={headings.length >= 2 ? "records-layout with-toc" : "records-layout"}>
-        {headings.length >= 2 && <TocPanel headings={headings} />}
+      <div className="records-layout">
         <div className="records-side">
           <div className="calendar" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           <div className="cal-nav">
@@ -581,6 +580,9 @@ export default function Records({ vaultId }: { vaultId: number }) {
               </>
             )}
           </div>
+
+          {/* 目录放在文件列表下面（桌面端左栏的第三块；窄屏由 CSS 改成左下角悬浮） */}
+          {headings.length >= 2 && <TocPanel headings={headings} />}
         </div>
         <div className="records-main">
           {selectedWeek ? (

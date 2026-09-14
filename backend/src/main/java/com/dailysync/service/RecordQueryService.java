@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.dailysync.common.BizException;
 import com.dailysync.dto.DailyRecordResponse;
 import com.dailysync.dto.RecordDateCountResponse;
+import com.dailysync.dto.RecordIndexResponse;
 import com.dailysync.dto.WeeklyRecordResponse;
 import com.dailysync.entity.DailyRecord;
 import com.dailysync.entity.Vault;
@@ -85,6 +86,25 @@ public class RecordQueryService {
                 .map(r -> new WeeklyRecordResponse(weekOf(r.getPath()), r.getPath(), r.getUpdatedAt()))
                 .filter(w -> w.week() != null)
                 .sorted(Comparator.comparing(WeeklyRecordResponse::week).reversed())
+                .toList();
+    }
+
+    /**
+     * 记录索引：整个仓库的文件清单（路径 + 文件名里解析出的日期 + 更新时间，不含正文）。
+     *
+     * <p>网页端左侧文件列表要按「文件名」逐条展示，而不是按日期聚合，
+     * 所以这里逐个文件返回。只 select 元数据列——正文可能很大，绝不带出来。
+     * 路径倒序：日记路径以日期开头，倒序即最新的在最前。
+     */
+    public List<RecordIndexResponse> listIndex(Long userId, Long vaultId) {
+        vaultService.ownedVault(userId, vaultId);
+        List<DailyRecord> rows = recordMapper.selectList(new QueryWrapper<DailyRecord>()
+                .select("id", "path", "record_date", "updated_at")
+                .eq("vault_id", vaultId)
+                .eq("deleted", 0)
+                .orderByDesc("path"));
+        return rows.stream()
+                .map(r -> new RecordIndexResponse(r.getId(), r.getPath(), r.getRecordDate(), r.getUpdatedAt()))
                 .toList();
     }
 

@@ -4,6 +4,7 @@ import com.dailysync.auth.UserContext;
 import com.dailysync.common.ApiResponse;
 import com.dailysync.dto.DailyRecordResponse;
 import com.dailysync.dto.RecordDateCountResponse;
+import com.dailysync.dto.RecordIndexResponse;
 import com.dailysync.dto.WeeklyRecordResponse;
 import com.dailysync.service.RecordQueryService;
 import com.dailysync.service.TodoService;
@@ -52,6 +53,17 @@ public class RecordController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return ApiResponse.ok(recordQueryService.dateCounts(UserContext.userId(), id, from, to));
+    }
+
+    /**
+     * 记录索引（网页端左侧文件列表用）：整个仓库的文件清单，含路径、文件名首段解析出的
+     * 日期与更新时间，**不含正文**。recordDate 为 null 的是非日期命名文件（周记等）。
+     *
+     * <p>错误：404 仓库不存在。
+     */
+    @GetMapping("/index")
+    public ApiResponse<List<RecordIndexResponse>> index(@PathVariable Long id) {
+        return ApiResponse.ok(recordQueryService.listIndex(UserContext.userId(), id));
     }
 
     /**

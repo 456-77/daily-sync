@@ -1,8 +1,9 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
-import MarkdownView from "./MarkdownView";
+import MarkdownView, { type Heading } from "./MarkdownView";
+import TocPanel from "./TocPanel";
 import PanelHelp from "./PanelHelp";
-import type { DailyRecord, DateCount, WeeklyRecord } from "./types";
+import type { DailyRecord, DateCount, RecordIndexEntry, WeeklyRecord } from "./types";
 
 /**
  * 日记浏览：月历打点（各日记录数）→ 点日期看当天记录 → 看内容（Markdown 渲染）。
@@ -89,6 +90,13 @@ function isoWeekMonday(week: string): Date {
   return monday;
 }
 
+/** 从文件名首段取 ISO 周标识（与后端 listWeekly 的正则一致）；不是周记命名返回 null */
+function weekOfPath(path: string): string | null {
+  const name = path.split("/").pop() ?? "";
+  const m = /^(\d{4}-W\d{2})(?: |$)/.exec(name);
+  return m ? m[1] : null;
+}
+
 export default function Records({ vaultId }: { vaultId: number }) {
   const today = todayIso();
   const thisMonth = useMemo(() => monthOf(today), [today]);
@@ -116,10 +124,14 @@ export default function Records({ vaultId }: { vaultId: number }) {
   const [todayChars, setTodayChars] = useState<number | null>(null);
   /** 文件列表：宽屏默认展开，窄屏默认收起（免得把正文顶到很下面） */
   const [filesOpen, setFilesOpen] = useState(() => window.innerWidth > 860);
-  /** 文件列表的过滤词（日记按日期、周记按周号匹配） */
+  /** 文件列表的过滤词（按文件名匹配） */
   const [fileFilter, setFileFilter] = useState("");
-  /** 全部有日记的日期（不限当前月），供文件列表用 */
-  const [allDiaries, setAllDiaries] = useState<DateCount[]>([]);
+  /** 记录索引：整个仓库的文件清单（含文件名），文件列表按它逐条渲染 */
+  const [index, setIndex] = useState<RecordIndexEntry[]>([]);
+  /** 从文件列表点了某篇之后，等记录回来选中这一篇（用 ref：不想让它进依赖再触发一次请求） */
+  const pendingPath = useRef<string | null>(null);
+  /** 当前正文的标题列表，交给页面最左侧的目录栏 */
+  const [headings, setHeadings] = useState<Heading[]>([]);
 
   const grid = useMemo(() => monthGrid(ym), [ym]);
   const isThisMonth = ym.year === thisMonth.year && ym.month === thisMonth.month;
@@ -205,28 +217,29 @@ export default function Records({ vaultId }: { vaultId: number }) {
       .catch(() => setTodayChars(null));
   }, [vaultId, today]);
 
-  // 文件列表：列出全部有日记的日期（一次拉全量，后端按 record_date 分组很便宜）
+  // 文件列表：拉一次索引（路径 + 文件名里的日期 + 更新时间，不含正文）
   useEffect(() => {
-    setAllDiaries([]);
-    const future = new Date();
-    future.setFullYear(future.getFullYear() + 1); // 预留给未来日期的日记
-    const to = iso(future.getFullYear(), future.getMonth() + 1, future.getDate());
+    setIndex([]);
     api
-      .get<DateCount[]>(`/api/v1/vaults/${vaultId}/records/dates?from=2000-01-01&to=${to}`)
-      .then((list) => setAllDiaries(list.slice().sort((a, b) => (a.date < b.date ? 1 : -1))))
-      .catch(() => setAllDiaries([]));
+      .get<RecordIndexEntry[]>(`/api/v1/vaults/${vaultId}/records/index`)
+      .then(setIndex)
+      .catch(() => setIndex([]));
   }, [vaultId]);
 
   // 选中日期的记录
   useEffect(() => {
     setRecords([]);
     setSelectedRecord(null);
+    setHeadings([]);
     if (!selectedDate) return;
     api
       .get<DailyRecord[]>(`/api/v1/vaults/${vaultId}/records?date=${selectedDate}`)
       .then((list) => {
         setRecords(list);
-        setSelectedRecord(list[0] ?? null);
+        // 从文件列表点进来的那一篇优先，否则默认第一篇
+        const wanted = pendingPath.current ? list.find((r) => r.path === pendingPath.current) : undefined;
+        pendingPath.current = null;
+        setSelectedRecord(wanted ?? list[0] ?? null);
       })
       .catch((err) => setError(err instanceof Error ? err.message : "加载日记失败"));
   }, [vaultId, selectedDate]);
@@ -266,17 +279,18 @@ export default function Records({ vaultId }: { vaultId: number }) {
     [counts, ym],
   );
 
-  /** 文件列表：周记按周号倒序 */
-  const weeklyList = useMemo(() => Object.keys(weeklyPaths).sort().reverse(), [weeklyPaths]);
+  /** 文件列表：按「日记 / 周记」分组，组内保持接口给的路径倒序；
+      只收 .md，插件同步上来的待办数据文件（json）不进列表 */
   const keyword = fileFilter.trim().toLowerCase();
-  const diaryEntries = useMemo(
-    () => (keyword ? allDiaries.filter((d) => d.date.toLowerCase().includes(keyword)) : allDiaries),
-    [allDiaries, keyword],
-  );
-  const weekEntries = useMemo(
-    () => (keyword ? weeklyList.filter((w) => w.toLowerCase().includes(keyword)) : weeklyList),
-    [weeklyList, keyword],
-  );
+  const fileName = useCallback((path: string) => path.split("/").pop()?.replace(/\.md$/, "") ?? path, []);
+  const diaryFiles = useMemo(() => {
+    const list = index.filter((e) => e.recordDate !== null && e.path.endsWith(".md"));
+    return keyword ? list.filter((e) => fileName(e.path).toLowerCase().includes(keyword)) : list;
+  }, [index, keyword, fileName]);
+  const weeklyFiles = useMemo(() => {
+    const list = index.filter((e) => e.recordDate === null && e.path.endsWith(".md"));
+    return keyword ? list.filter((e) => fileName(e.path).toLowerCase().includes(keyword)) : list;
+  }, [index, keyword, fileName]);
 
   /** 日期与周互斥：当前只看其中一种 */
   const pickDate = (date: string) => {
@@ -314,15 +328,29 @@ export default function Records({ vaultId }: { vaultId: number }) {
     setPendingToday(true);
   };
 
-  /** 从文件列表打开某天：日历翻到那个月，并选中那一天 */
-  const openFromList = (date: string) => {
+  /** 从文件列表打开某篇日记：日历翻到那一天，并选中这一篇 */
+  const openFile = (entry: RecordIndexEntry) => {
+    const date = entry.recordDate;
+    if (!date) return;
     setYm(monthOf(date));
     setPickerOpen(false);
-    pickDate(date);
+    setSelectedWeek(null);
+    // 同一天换一篇：记录已经在手上，直接切，不必再请求
+    if (date === selectedDate) {
+      const found = records.find((r) => r.path === entry.path);
+      if (found) {
+        setSelectedRecord(found);
+        return;
+      }
+    }
+    pendingPath.current = entry.path;
+    setSelectedDate(date);
   };
 
-  /** 从文件列表打开某周：翻到该周所在的月份并按周查看（不走 pickWeek 的再次点击取消） */
-  const openWeekFromList = (week: string) => {
+  /** 从文件列表打开某篇周记：翻到该周所在的月份并按周查看 */
+  const openWeekFile = (entry: RecordIndexEntry) => {
+    const week = weekOfPath(entry.path);
+    if (!week) return;
     const monday = isoWeekMonday(week);
     setYm(monthOf(iso(monday.getFullYear(), monday.getMonth() + 1, monday.getDate())));
     setPickerOpen(false);
@@ -362,7 +390,8 @@ export default function Records({ vaultId }: { vaultId: number }) {
         </PanelHelp>
       </div>
       {error && <div className="form-error">{error}</div>}
-      <div className="records-layout">
+      <div className={headings.length >= 2 ? "records-layout with-toc" : "records-layout"}>
+        {headings.length >= 2 && <TocPanel headings={headings} />}
         <div className="records-side">
           <div className="calendar" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           <div className="cal-nav">
@@ -504,7 +533,7 @@ export default function Records({ vaultId }: { vaultId: number }) {
                 文件列表
               </button>
               <span className="file-list-count">
-                {allDiaries.length} 日记 · {weeklyList.length} 周记
+                {diaryFiles.length} 日记 · {weeklyFiles.length} 周记
               </span>
             </div>
             {filesOpen && (
@@ -512,40 +541,42 @@ export default function Records({ vaultId }: { vaultId: number }) {
                 <input
                   className="file-list-filter"
                   value={fileFilter}
-                  placeholder="筛选，如 2026-09 或 W38"
+                  placeholder="筛选文件名，如 2026-09 或 W38"
                   onChange={(e) => setFileFilter(e.target.value)}
                 />
                 <div className="file-list-body">
                   <div className="file-list-section">
-                    日记 <span>{diaryEntries.length}</span>
+                    日记 <span>{diaryFiles.length}</span>
                   </div>
-                  {diaryEntries.map((d) => (
+                  {diaryFiles.map((entry) => (
                     <button
-                      key={d.date}
-                      className={selectedDate === d.date ? "file-item active" : "file-item"}
-                      onClick={() => openFromList(d.date)}
-                      title={`${d.date} · ${d.count} 篇`}
+                      key={entry.id}
+                      className={selectedRecord?.path === entry.path ? "file-item active" : "file-item"}
+                      onClick={() => openFile(entry)}
+                      title={entry.path}
                     >
-                      <span className="file-item-name">{d.date}</span>
-                      {d.count > 1 && <span className="file-item-count">{d.count}</span>}
+                      <span className="file-item-name">{fileName(entry.path)}</span>
                     </button>
                   ))}
-                  {diaryEntries.length === 0 && <div className="file-list-empty">没有匹配的日记</div>}
+                  {diaryFiles.length === 0 && <div className="file-list-empty">没有匹配的日记</div>}
 
                   <div className="file-list-section">
-                    周记 <span>{weekEntries.length}</span>
+                    周记 <span>{weeklyFiles.length}</span>
                   </div>
-                  {weekEntries.map((w) => (
-                    <button
-                      key={w}
-                      className={selectedWeek === w ? "file-item active" : "file-item"}
-                      onClick={() => openWeekFromList(w)}
-                      title={`${w} 周记`}
-                    >
-                      <span className="file-item-name">{w}</span>
-                    </button>
-                  ))}
-                  {weekEntries.length === 0 && <div className="file-list-empty">没有匹配的周记</div>}
+                  {weeklyFiles.map((entry) => {
+                    const week = weekOfPath(entry.path);
+                    return (
+                      <button
+                        key={entry.id}
+                        className={selectedWeek === week ? "file-item active" : "file-item"}
+                        onClick={() => openWeekFile(entry)}
+                        title={entry.path}
+                      >
+                        <span className="file-item-name">{fileName(entry.path)}</span>
+                      </button>
+                    );
+                  })}
+                  {weeklyFiles.length === 0 && <div className="file-list-empty">没有匹配的周记</div>}
                 </div>
               </>
             )}
@@ -559,7 +590,7 @@ export default function Records({ vaultId }: { vaultId: number }) {
                   {weeklyRecord.path} · 更新于 {new Date(weeklyRecord.updatedAt).toLocaleString()}
                 </div>
                 <div className="record-content">
-                  <MarkdownView content={weeklyRecord.content} />
+                  <MarkdownView content={weeklyRecord.content} onHeadings={setHeadings} />
                 </div>
               </div>
             ) : weeklyPaths[selectedWeek] ? (
@@ -587,7 +618,7 @@ export default function Records({ vaultId }: { vaultId: number }) {
                       {selectedRecord.path} · 更新于 {new Date(selectedRecord.updatedAt).toLocaleString()}
                     </div>
                     <div className="record-content">
-                      <MarkdownView content={selectedRecord.content} />
+                      <MarkdownView content={selectedRecord.content} onHeadings={setHeadings} />
                     </div>
                   </div>
                 )}

@@ -532,9 +532,14 @@ button.danger:hover:not(:disabled) {
 /* ---------- 日记浏览 ---------- */
 .records-layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 320px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
+}
+
+/* 有目录时再多一列，且目录排在最左 */
+.records-layout.with-toc {
+  grid-template-columns: auto 320px minmax(0, 1fr);
 }
 
 /*
@@ -1412,34 +1417,25 @@ button.danger:hover:not(:disabled) {
   font-weight: 600;
 }
 
-/* ---------- 正文目录（宽屏为左侧粘性栏，窄屏退回顶部可折叠块） ---------- */
-.md-split {
-  display: grid;
-  gap: 16px;
-  align-items: start;
-}
-
-/* 目录展开：固定宽度的目录栏 + 正文；收起：只留一个窄标签 */
-.md-split-open {
-  grid-template-columns: 200px minmax(0, 1fr);
-}
-
-.md-split-closed {
-  grid-template-columns: auto minmax(0, 1fr);
-}
-
-.md-toc {
+/* ---------- 目录（挂在页面最左一列；窄屏改为悬浮浮层） ---------- */
+.toc-panel {
   /* 粘在顶栏下方：正文往下读，目录一直跟着 */
   position: sticky;
   top: 68px;
+  width: 88px;
   max-height: calc(100vh - 96px);
-  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fbfcfd;
+  overflow: hidden;
 }
 
-.md-toc-toggle {
+/* 展开是固定宽度的一栏；收起只留「▸ 目录 N」那么宽 */
+.toc-panel-open {
+  width: 200px;
+}
+
+.toc-toggle {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -1454,23 +1450,23 @@ button.danger:hover:not(:disabled) {
   white-space: nowrap;
 }
 
-.md-toc-toggle:hover:not(:disabled) {
+.toc-toggle:hover:not(:disabled) {
   background: rgba(47, 111, 235, 0.06);
   color: var(--text);
 }
 
-.md-toc-arrow {
+.toc-arrow {
   font-size: 11px;
   line-height: 1;
 }
 
-.md-toc-count {
+.toc-count {
   margin-left: auto;
   font-size: 12px;
   color: var(--muted);
 }
 
-.md-toc-list {
+.toc-list {
   /*
    * 这里刻意不用 flex 列布局：在限高（max-height）容器里，flex 子项默认
    * flex-shrink:1 会被压缩而不是溢出滚动——标题一多（实测 150 个）就会把
@@ -1478,10 +1474,11 @@ button.danger:hover:not(:disabled) {
    */
   padding: 6px 0;
   border-top: 1px solid var(--line);
+  max-height: calc(100vh - 160px);
   overflow-y: auto;
 }
 
-.md-toc-item {
+.toc-item {
   display: block;
   width: 100%;
   border: none;
@@ -1497,28 +1494,28 @@ button.danger:hover:not(:disabled) {
   text-overflow: ellipsis;
 }
 
-.md-toc-item:hover:not(:disabled) {
+.toc-item:hover:not(:disabled) {
   background: rgba(47, 111, 235, 0.08);
   color: var(--primary);
 }
 
 /* 按标题层级缩进，一眼看出文档结构 */
-.md-toc-h1 {
+.toc-h1 {
   padding-left: 12px;
   font-weight: 600;
 }
 
-.md-toc-h2 {
+.toc-h2 {
   padding-left: 26px;
 }
 
-.md-toc-h3 {
+.toc-h3 {
   padding-left: 40px;
 }
 
-.md-toc-h4,
-.md-toc-h5,
-.md-toc-h6 {
+.toc-h4,
+.toc-h5,
+.toc-h6 {
   padding-left: 54px;
 }
 
@@ -2098,25 +2095,33 @@ button.danger:hover:not(:disabled) {
 }
 
 /*
- * ---------- 窄屏：目录退回正文上方（放在文件末尾，理由同上一段） ----------
- * 宽屏时目录是正文左侧的粘性栏，窄屏没有栏位，改成可折叠的一块放在正文前面。
+ * ---------- 窄屏：页签与目录（放在文件末尾，理由同上一段） ----------
+ * 窄屏没有给目录留栏位的空间，改成左下角悬浮：不占布局、不挡顶部工具栏，
+ * 也不会遮住正文左侧（浮层可随时收起）。
  */
 @media (max-width: 860px) {
-  .md-split,
-  .md-split-open,
-  .md-split-closed {
+  .records-layout,
+  .records-layout.with-toc {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .md-toc {
-    position: static;
+  .toc-panel {
+    position: fixed;
+    left: 10px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
     top: auto;
-    max-height: none;
-    margin-bottom: 14px;
-    overflow: hidden;
+    width: auto;
+    max-height: min(60vh, 420px);
+    z-index: 20;
+    background: var(--card);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
   }
 
-  .md-toc-list {
-    max-height: 40vh;
+  .toc-panel-open {
+    width: min(260px, calc(100vw - 20px));
+  }
+
+  .toc-list {
+    max-height: min(50vh, 340px);
   }
 }

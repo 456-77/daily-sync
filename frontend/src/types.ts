@@ -71,6 +71,17 @@ export interface WeeklyRecord {
 }
 
 /**
+ * 记录索引条目（左侧文件列表用，不含正文）。
+ * recordDate 为 null 表示文件名不是日期开头（周记等）。
+ */
+export interface RecordIndexEntry {
+  id: number;
+  path: string;
+  recordDate: string | null;
+  updatedAt: string;
+}
+
+/**
  * 待办条目。与插件 todos.ts 的 TodoItem、云端快照保持一致：
  * id 用于双向同步时按条目对齐，updatedAt 决定取哪一侧的版本，
  * deleted 是墓碑（删除不物理移除，否则另一侧合并会把它当新增复活）。

@@ -44,11 +44,26 @@ export default function Todos({ vaultId }: { vaultId: number }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [newText, setNewText] = useState("");
-  const [newDate, setNewDate] = useState(todayIso);
 
   // 筛选与折叠
+  /**
+   * 日期只有一个控件，两件事都由它决定：列表只看这一天，新待办也落在这一天。
+   * 默认今天 —— 也就是「默认只显示今天的待办」。
+   */
+  const [filterDate, setFilterDate] = useState(todayIso);
+  /** 取消日期筛选，把其它日期一并列出来（新待办的落点仍是上面的日期） */
+  const [allDates, setAllDates] = useState(false);
   const [onlyPending, setOnlyPending] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  /** 低频区（日期 + 两个筛选开关）默认收起，收起时只留一行摘要 */
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  /** 同步说明默认藏进 ? 里，不占首屏 */
+  const [helpOpen, setHelpOpen] = useState(false);
+  /** 触摸设备上被点亮的那一行（删除键随之显形）；鼠标设备靠 hover，用不到 */
+  const [revealedId, setRevealedId] = useState<string | null>(null);
+  const canHover = useHoverCapable();
+
+  const today = todayIso();
 
   useEffect(() => {
     setLoading(true);
@@ -112,15 +127,15 @@ export default function Todos({ vaultId }: { vaultId: number }) {
 
   const addTodo = () => {
     const text = newText.trim();
-    if (!text || !newDate) return;
+    if (!text || !filterDate) return;
     mutate((todos) => {
-      (todos[newDate] ??= []).push({
+      (todos[filterDate] ??= []).push({
         id: newId(),
         text,
         done: false,
         updatedAt: Date.now(),
       });
-    }, "已添加");
+    }, filterDate === today ? "已添加" : `已添加到 ${filterDate}`);
     setNewText("");
   };
 
@@ -157,7 +172,6 @@ export default function Todos({ vaultId }: { vaultId: number }) {
 
   /** 把该日未完成的待办顺延到目标日（默认今天；已经就是今天则顺延到明天） */
   const carryOver = (date: string) => {
-    const today = todayIso();
     const target = date === today ? tomorrowIso() : today;
     const pending = (snapshot?.todos[date] ?? []).filter((i) => !i.done && !i.deleted);
     if (pending.length === 0) {
@@ -188,7 +202,7 @@ export default function Todos({ vaultId }: { vaultId: number }) {
   };
 
   /** 处理后的日期列表：日期倒序，过滤墓碑与（可选的）已完成条目 */
-  const days = useMemo(() => {
+  const allDays = useMemo(() => {
     const todos = snapshot?.todos ?? {};
     return Object.keys(todos)
       .sort()
@@ -200,10 +214,23 @@ export default function Todos({ vaultId }: { vaultId: number }) {
           .slice()
           .sort((a, b) => Number(a.done) - Number(b.done));
         const done = all.filter((item) => item.done).length;
-        return { date, items: visible, total: all.length, done };
+        // pending 用整天的数据算（不受只看未完成影响），决定要不要显示「顺延」
+        return { date, items: visible, total: all.length, done, pending: all.length - done };
       })
       .filter((day) => day.total > 0 && day.items.length > 0);
   }, [snapshot, onlyPending]);
+
+  const days = useMemo(
+    () => (allDates ? allDays : allDays.filter((day) => day.date === filterDate)),
+    [allDays, allDates, filterDate],
+  );
+
+  /** 被日期筛选挡住的其它日期，用来给出「还有多少没显示」的出口 */
+  const hidden = useMemo(() => {
+    if (allDates) return { days: 0, items: 0 };
+    const rest = allDays.filter((day) => day.date !== filterDate);
+    return { days: rest.length, items: rest.reduce((n, day) => n + day.items.length, 0) };
+  }, [allDays, allDates, filterDate]);
 
   const toggleCollapse = (date: string) =>
     setCollapsed((cur) => {
@@ -212,6 +239,31 @@ export default function Todos({ vaultId }: { vaultId: number }) {
       else next.add(date);
       return next;
     });
+
+  const emptyText = onlyPending
+    ? "没有未完成的待办"
+    : hidden.days > 0
+      ? filterDate === today
+        ? "今天没有待办"
+        : `${filterDate} 没有待办`
+      : "还没有待办";
+
+  /**
+   * 筛选状态直接写进「筛选」按钮的文字里（收起也能看见当前范围），
+   * 不再单独摆一个统计标签——那会让人分不清它属于列表还是筛选。
+   */
+  const filterLabel = [
+    allDates ? "全部日期" : filterDate === today ? "" : filterDate.slice(5),
+    onlyPending ? "未完成" : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  /** 日期与落点一起复位：视图回到今天，新待办也落回今天 */
+  const resetDate = () => {
+    setFilterDate(today);
+    setAllDates(false);
+  };
 
   if (loading) {
     return (
@@ -223,11 +275,24 @@ export default function Todos({ vaultId }: { vaultId: number }) {
 
   return (
     <div className="panel">
-      <div className="panel-head">
-        <h2>待办事项</h2>
-        <span className="panel-hint">
-          改动会同步到 Obsidian；两端同时修改时按条目合并（后改的赢）
-        </span>
+      <div className="todo-head">
+        <h2 className="todo-title">待办事项</h2>
+        <div className={helpOpen ? "todo-help todo-help-open" : "todo-help"}>
+          <button
+            type="button"
+            className="todo-help-btn"
+            aria-expanded={helpOpen}
+            aria-label="同步说明"
+            title="同步说明"
+            onClick={() => setHelpOpen((v) => !v)}
+          >
+            ?
+          </button>
+          <p className="todo-help-text">
+            改动会同步到 Obsidian；两端同时修改时按条目合并（后改的赢）。双击待办文字可编辑，
+            悬停（手机点一下）该行会出现删除键。
+          </p>
+        </div>
       </div>
 
       {error && <div className="form-error">{error}</div>}
@@ -242,41 +307,80 @@ export default function Todos({ vaultId }: { vaultId: number }) {
         <div className="empty">还没有待办数据——需要插件升级到 2.8.0 并在 Obsidian 里同步一次</div>
       ) : (
         <>
-          <div className="todo-toolbar">
-            <input
-              className="todo-new-input"
-              value={newText}
-              placeholder="添加待办，回车确认"
-              disabled={saving}
-              onChange={(e) => setNewText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.nativeEvent.isComposing) addTodo();
-              }}
-            />
-            <input
-              type="date"
-              value={newDate}
-              disabled={saving}
-              onChange={(e) => setNewDate(e.target.value)}
-            />
-            <button className="primary" disabled={saving || !newText.trim()} onClick={addTodo}>
-              添加
-            </button>
-            <label className="todo-filter">
+          <div className="todo-actions">
+            <div className="todo-add">
               <input
-                type="checkbox"
-                checked={onlyPending}
-                onChange={(e) => setOnlyPending(e.target.checked)}
+                className="todo-new-input"
+                value={newText}
+                placeholder="添加待办"
+                disabled={saving}
+                onChange={(e) => setNewText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.nativeEvent.isComposing) addTodo();
+                }}
               />
-              只看未完成
-            </label>
+              <button className="primary" disabled={saving || !newText.trim()} onClick={addTodo}>
+                添加
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className={filtersOpen ? "todo-filter-toggle open" : "todo-filter-toggle"}
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen((v) => !v)}
+            >
+              <FunnelIcon />
+              <span>筛选{filterLabel && ` · ${filterLabel}`}</span>
+              <span className="todo-caret">{filtersOpen ? "▴" : "▾"}</span>
+            </button>
+
+            {filtersOpen && (
+              <div className="todo-filters">
+                <label className={allDates ? "todo-field off" : "todo-field"}>
+                  <span>日期</span>
+                  <input
+                    type="date"
+                    value={filterDate}
+                    disabled={saving || allDates}
+                    onChange={(e) => setFilterDate(e.target.value || today)}
+                  />
+                </label>
+                <label className="todo-filter">
+                  <input
+                    type="checkbox"
+                    checked={allDates}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      setAllDates(on);
+                      // 关掉日期筛选时把日期一并复位，不留「看不见的落点」
+                      if (on) setFilterDate(today);
+                    }}
+                  />
+                  全部日期
+                </label>
+                <label className="todo-filter">
+                  <input
+                    type="checkbox"
+                    checked={onlyPending}
+                    onChange={(e) => setOnlyPending(e.target.checked)}
+                  />
+                  只看未完成
+                </label>
+                {(filterDate !== today || allDates) && (
+                  <button type="button" className="todo-reset" onClick={resetDate}>
+                    回到今天
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {days.length === 0 ? (
-            <div className="empty">{onlyPending ? "没有未完成的待办" : "还没有待办"}</div>
+            <div className="empty">{emptyText}</div>
           ) : (
             <div className="todo-days">
-              {days.map(({ date, items, total, done }) => {
+              {days.map(({ date, items, total, done, pending }) => {
                 const isCollapsed = collapsed.has(date);
                 return (
                   <div className="todo-day" key={date}>
@@ -290,26 +394,54 @@ export default function Todos({ vaultId }: { vaultId: number }) {
                         {isCollapsed ? "▸" : "▾"}
                       </button>
                       <span className="todo-date">{date}</span>
-                      <span className="todo-progress">
-                        {done}/{total} 已完成
+                      <span className="todo-progress" aria-label={`${done}/${total} 已完成`}>
+                        <span className="todo-progress-track">
+                          <span
+                            className="todo-progress-fill"
+                            style={{ width: `${Math.round((done / total) * 100)}%` }}
+                          />
+                        </span>
+                        <span className="todo-progress-text">
+                          {done}/{total}
+                        </span>
                       </span>
-                      <button
-                        className="todo-carryover"
-                        disabled={saving}
-                        onClick={() => carryOver(date)}
-                        title="把该日未完成的待办挪到今天（已是今天则挪到明天）"
-                      >
-                        顺延未完成
-                      </button>
+                      {pending > 0 && (
+                        <button
+                          className="todo-carryover"
+                          disabled={saving}
+                          onClick={() => carryOver(date)}
+                          title="把该日未完成的待办挪到今天（已是今天则挪到明天）"
+                        >
+                          顺延
+                        </button>
+                      )}
                     </div>
                     {!isCollapsed && (
                       <ul className="todo-list">
                         {items.map((item) => (
-                          <li key={item.id} className={item.done ? "todo-item done" : "todo-item"}>
+                          <li
+                            key={item.id}
+                            className={[
+                              "todo-item",
+                              item.done ? "done" : "",
+                              revealedId === item.id ? "revealed" : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                            // 触摸设备没有 hover：点这一行把它自己的删除键亮出来
+                            onClick={
+                              canHover
+                                ? undefined
+                                : () => setRevealedId((cur) => (cur === item.id ? null : item.id))
+                            }
+                          >
                             <button
                               className={item.done ? "todo-box checked" : "todo-box"}
                               disabled={saving}
-                              onClick={() => toggleTodo(date, item.id)}
+                              onClick={(e) => {
+                                e.stopPropagation(); // 别把「点亮删除键」也一起触发
+                                toggleTodo(date, item.id);
+                              }}
                               aria-label={item.done ? "标记为未完成" : "标记为已完成"}
                             />
                             {editingId === item.id ? (
@@ -340,7 +472,10 @@ export default function Todos({ vaultId }: { vaultId: number }) {
                             <button
                               className="todo-del"
                               disabled={saving}
-                              onClick={() => removeTodo(date, item.id, item.text)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeTodo(date, item.id, item.text);
+                              }}
                               title="删除"
                             >
                               ×
@@ -352,6 +487,17 @@ export default function Todos({ vaultId }: { vaultId: number }) {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {hidden.days > 0 && (
+            <div className="todo-hidden">
+              <span>
+                另有 {hidden.days} 天（{hidden.items} 项）已隐藏
+              </span>
+              <button className="todo-hidden-show" onClick={() => setAllDates(true)}>
+                显示全部
+              </button>
             </div>
           )}
         </>
@@ -366,4 +512,42 @@ function tomorrowIso(): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${d.getFullYear()}-${m}-${day}`;
+}
+
+/** 漏斗图标：用描边画法（实心在 11px 下会糊成一个三角形）；跟着按钮文字颜色走 */
+function FunnelIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="13"
+      height="13"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+    </svg>
+  );
+}
+
+/**
+ * 指针是否带悬停能力。触摸设备没有 hover，删除键只能靠「点一下该行」显形，
+ * 因此这里要跟着媒体查询走（系统外接鼠标后也能实时切换）。
+ */
+function useHoverCapable(): boolean {
+  const query = "(hover: hover) and (pointer: fine)";
+  const [canHover, setCanHover] = useState(() => window.matchMedia(query).matches);
+
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const onChange = () => setCanHover(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  return canHover;
 }

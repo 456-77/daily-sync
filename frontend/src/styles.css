@@ -888,6 +888,33 @@ button.danger:hover:not(:disabled) {
   .password-toggle {
     min-height: 0;
   }
+
+  /* 回顶按钮贴近屏幕边缘，省出正文宽度 */
+  .to-top {
+    right: 14px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    width: 38px;
+    height: 38px;
+  }
+
+  /* 待办：日期条与列表收一收留白，删除按钮给出更大的触摸目标 */
+  .todo-day-head {
+    gap: 6px;
+    padding: 8px 10px;
+  }
+
+  .todo-list {
+    padding: 8px 10px 10px;
+    gap: 9px;
+  }
+
+  .todo-del {
+    padding: 4px 10px;
+  }
+
+  .todo-carryover {
+    padding: 4px 2px;
+  }
 }
 
 /* ---------- Markdown 正文（GFM + 代码高亮） ---------- */
@@ -1127,17 +1154,172 @@ button.danger:hover:not(:disabled) {
 }
 
 /* ---------- 待办事项（可编辑，与插件双向同步） ---------- */
-.todo-toolbar {
+/*
+ * 版面分四层：标题 / 操作栏（高频添加 + 低频筛选）/ 日期分组 / 列表项。
+ * 每层之间靠间距和浅色分隔，不再让说明文字、输入框、筛选、列表糊成一团。
+ */
+.todo-head {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
   margin-bottom: 14px;
 }
 
+.todo-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+/* 说明文字收进 ? 里：悬停（鼠标）或点击（触摸）才展开，不占首屏 */
+.todo-help {
+  display: flex;
+}
+
+.todo-help-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.todo-help-btn:hover:not(:disabled) {
+  background: #f0f2f5;
+  color: var(--text);
+}
+
+/*
+ * 相对标题行定位（不是相对 ? 本身）：tooltip 从内容左边缘起排，
+ * max-width 也用百分比封顶，窄屏下不会顶出屏幕右边。
+ */
+.todo-help-text {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 5;
+  width: max-content;
+  max-width: min(300px, 100%);
+  margin: 0;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.todo-help:hover .todo-help-text,
+.todo-help-open .todo-help-text {
+  display: block;
+}
+
+/* --- 操作栏 --- */
+.todo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.todo-add {
+  display: flex;
+  gap: 8px;
+}
+
+/* 输入框吃掉剩余宽度，添加按钮固定在右侧 */
 .todo-new-input {
-  flex: 1 1 200px;
+  flex: 1 1 auto;
   min-width: 0;
+}
+
+.todo-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  /* 列方向容器里不跟着拉满宽度 */
+  align-self: flex-start;
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.todo-filter-toggle.open {
+  background: rgba(47, 111, 235, 0.08);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.todo-caret {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.75;
+}
+
+.todo-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* 列方向容器里按内容宽度收住：桌面端不会拉出一条大半是空白的面板 */
+  align-self: flex-start;
+  gap: 8px 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.todo-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.todo-field input[type="date"] {
+  padding: 4px 6px;
+  font-size: 13px;
+}
+
+/* 勾了「全部日期」就置灰：日期这一格此刻不参与筛选 */
+.todo-field.off,
+.todo-field input:disabled {
+  color: #b7bdc5;
+}
+
+.todo-field input:disabled {
+  background: #f6f7f9;
+}
+
+/* 日期筛选不在今天时给的快捷回位 */
+.todo-reset {
+  flex: none;
+  padding: 2px 0;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-size: 12px;
+}
+
+.todo-reset:hover:not(:disabled) {
+  background: none;
+  text-decoration: underline;
 }
 
 .todo-filter {
@@ -1149,7 +1331,7 @@ button.danger:hover:not(:disabled) {
   white-space: nowrap;
 }
 
-/* 工具栏里的复选框保持原生尺寸，别被全局 input 规则撑开 */
+/* 筛选区里的复选框保持原生尺寸，别被全局 input 规则撑开 */
 .todo-filter input[type="checkbox"] {
   width: 15px;
   height: 15px;
@@ -1158,23 +1340,27 @@ button.danger:hover:not(:disabled) {
   accent-color: var(--primary);
 }
 
+/* --- 日期分组 --- */
 .todo-days {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .todo-day {
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 12px 14px;
+  /* 让日期条的浅灰底铺满圆角，不露出直角 */
+  overflow: hidden;
 }
 
+/* 日期条：浅灰底 + 加粗日期，和下面的待办项一眼分开 */
 .todo-day-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f7f8fa;
 }
 
 .todo-collapse {
@@ -1195,35 +1381,74 @@ button.danger:hover:not(:disabled) {
 }
 
 .todo-date {
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.2px;
 }
 
+/* 极简进度：细轨道 + 灰字计数（轨道比填充深一点，未完成部分也看得见） */
 .todo-progress {
-  color: var(--muted);
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
+.todo-progress-track {
+  display: block;
+  width: 44px;
+  height: 6px;
+  border-radius: 999px;
+  background: #dfe3e8;
+  overflow: hidden;
+}
+
+.todo-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+  transition: width 0.2s ease;
+}
+
+.todo-progress-text {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 「顺延」保持安静：灰色小字，悬停才变主题色 */
 .todo-carryover {
   margin-left: auto;
-  padding: 3px 10px;
-  font-size: 12px;
+  flex: none;
+  padding: 2px 4px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
 }
 
+.todo-carryover:hover:not(:disabled) {
+  background: none;
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* --- 列表项 --- */
 .todo-list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 10px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 10px;
 }
 
 .todo-item {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 9px;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 /* 复选框改成 button 自绘（可点击），顺带避开全局 input 样式 */
@@ -1232,7 +1457,7 @@ button.danger:hover:not(:disabled) {
   flex: none;
   width: 15px;
   height: 15px;
-  margin: 3px 0 0;
+  margin: 3.5px 0 0;
   padding: 0;
   border: 1px solid #b8bfc7;
   border-radius: 3px;
@@ -1263,9 +1488,11 @@ button.danger:hover:not(:disabled) {
   word-break: break-word;
 }
 
+/* 已完成：整体压淡 + 删除线，与未完成拉开对比（勾选框保持主题色，别让人误以为没勾） */
 .todo-item.done .todo-text {
-  color: var(--muted);
+  color: #9aa2ab;
   text-decoration: line-through;
+  text-decoration-thickness: 1px;
 }
 
 .todo-edit-input {
@@ -1275,19 +1502,93 @@ button.danger:hover:not(:disabled) {
   font-size: 14px;
 }
 
+/*
+ * 删除键默认完全隐藏：
+ * - 鼠标设备：悬停（或键盘聚焦）该行时淡入；
+ * - 触摸设备：没有 hover，点一下该行点亮（.revealed）。
+ * 这样多行文字右侧不会一直飘着一个 ×。
+ */
 .todo-del {
   flex: none;
   padding: 2px 8px;
   border: none;
   background: none;
   color: var(--muted);
-  font-size: 16px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  font-size: 14px;
   line-height: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .todo-item:hover .todo-del,
+  .todo-item:focus-within .todo-del {
+    opacity: 1;
+  }
+}
+
+.todo-item.revealed .todo-del {
+  opacity: 1;
 }
 
 .todo-del:hover:not(:disabled) {
   background: none;
   color: var(--danger);
+}
+
+/* 「只看今天」挡住的其它日期：去边框的纯文本一行，右侧是文字按钮 */
+.todo-hidden {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.todo-hidden-show {
+  margin-left: auto;
+  padding: 2px 0;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-size: 12px;
+}
+
+.todo-hidden-show:hover:not(:disabled) {
+  background: none;
+  text-decoration: underline;
+}
+
+/* ---------- 回到顶部 ---------- */
+/*
+ * 长日记 / 长周记读到底部后的回顶按钮：固定在右下角，滚过阈值才渲染。
+ * z-index 高于 sticky 顶栏，低于弹窗（.modal-mask 100）。
+ */
+.to-top {
+  position: fixed;
+  right: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-color: transparent;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--primary);
+  font-size: 16px;
+  line-height: 1;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.16);
+}
+
+.to-top:hover:not(:disabled) {
+  background: #fff;
+  border-color: var(--primary);
 }
 
 /* ---------- 个人主页 ---------- */

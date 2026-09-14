@@ -8,6 +8,7 @@ import Todos from "./Todos";
 import Profile from "./Profile";
 import Admin from "./Admin";
 import AuditLogs from "./AuditLogs";
+import BackToTop from "./BackToTop";
 
 /**
  * profile 与 admin 都不在 TABS 常量里：前者由顶栏用户名进入，
@@ -150,6 +151,7 @@ export default function App() {
         {tab === "profile" && <Profile />}
         {tab === "admin" && isAdmin && <Admin />}
       </main>
+      <BackToTop />
     </div>
   );
 }

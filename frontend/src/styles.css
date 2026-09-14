@@ -1492,7 +1492,9 @@ button.danger:hover:not(:disabled) {
  * 删除键默认完全隐藏：
  * - 鼠标设备：悬停（或键盘聚焦）该行时淡入；
  * - 触摸设备：没有 hover，点一下该行点亮（.revealed）。
- * 这样多行文字右侧不会一直飘着一个 ×。
+ * 注意 opacity:0 只是看不见，元素**仍然能被点到**——触摸端第一次点在文字右侧
+ * 就会直接弹出删除确认，而按钮从头到尾没露过面。所以隐形时必须连点击一起关掉，
+ * 显形后再放开。
  */
 .todo-del {
   flex: none;
@@ -1502,6 +1504,7 @@ button.danger:hover:not(:disabled) {
   background: none;
   color: var(--muted);
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.12s ease;
   font-size: 14px;
   line-height: 1;
@@ -1511,11 +1514,13 @@ button.danger:hover:not(:disabled) {
   .todo-item:hover .todo-del,
   .todo-item:focus-within .todo-del {
     opacity: 1;
+    pointer-events: auto;
   }
 }
 
 .todo-item.revealed .todo-del {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .todo-del:hover:not(:disabled) {

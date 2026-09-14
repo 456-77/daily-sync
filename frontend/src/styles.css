@@ -552,6 +552,137 @@ button.danger:hover:not(:disabled) {
   padding: 14px;
 }
 
+/* ---------- 左栏：日历 + 文件列表 ---------- */
+.records-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.file-list {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.file-list-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-list-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.file-list-toggle:hover:not(:disabled) {
+  background: none;
+  color: var(--primary);
+}
+
+.file-list-arrow {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.file-list-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.file-list-filter {
+  width: 100%;
+  margin-top: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* 列表本体限高独立滚动：历史长了也不会把正文顶下去 */
+.file-list-body {
+  margin-top: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* 分组小标题吸顶，滚动时始终知道在看日记还是周记 */
+.file-list-section {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 2px 4px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.file-list-section span {
+  color: #b7bdc5;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+}
+
+.file-item:hover:not(:disabled) {
+  background: #f0f2f5;
+  color: var(--primary);
+}
+
+.file-item.active {
+  background: rgba(47, 111, 235, 0.1);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.file-item-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.file-item-count {
+  flex: none;
+  min-width: 14px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+}
+
+.file-list-empty {
+  padding: 4px 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .cal-nav {
   position: relative;
   display: flex;
@@ -1281,13 +1412,31 @@ button.danger:hover:not(:disabled) {
   font-weight: 600;
 }
 
-/* ---------- 正文目录（可折叠） ---------- */
+/* ---------- 正文目录（宽屏为左侧粘性栏，窄屏退回顶部可折叠块） ---------- */
+.md-split {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+
+/* 目录展开：固定宽度的目录栏 + 正文；收起：只留一个窄标签 */
+.md-split-open {
+  grid-template-columns: 200px minmax(0, 1fr);
+}
+
+.md-split-closed {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
 .md-toc {
+  /* 粘在顶栏下方：正文往下读，目录一直跟着 */
+  position: sticky;
+  top: 68px;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
-  margin-bottom: 14px;
   background: #fbfcfd;
-  overflow: hidden;
 }
 
 .md-toc-toggle {
@@ -1302,6 +1451,7 @@ button.danger:hover:not(:disabled) {
   color: var(--muted);
   text-align: left;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .md-toc-toggle:hover:not(:disabled) {
@@ -1328,7 +1478,6 @@ button.danger:hover:not(:disabled) {
    */
   padding: 6px 0;
   border-top: 1px solid var(--line);
-  max-height: 40vh;
   overflow-y: auto;
 }
 
@@ -1945,5 +2094,29 @@ button.danger:hover:not(:disabled) {
     bottom: calc(14px + env(safe-area-inset-bottom));
     width: 38px;
     height: 38px;
+  }
+}
+
+/*
+ * ---------- 窄屏：目录退回正文上方（放在文件末尾，理由同上一段） ----------
+ * 宽屏时目录是正文左侧的粘性栏，窄屏没有栏位，改成可折叠的一块放在正文前面。
+ */
+@media (max-width: 860px) {
+  .md-split,
+  .md-split-open,
+  .md-split-closed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .md-toc {
+    position: static;
+    top: auto;
+    max-height: none;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+
+  .md-toc-list {
+    max-height: 40vh;
   }
 }

@@ -80,6 +80,15 @@ function shiftMonth({ year, month }: YearMonth, delta: number): YearMonth {
   return { year: d.getFullYear(), month: d.getMonth() + 1 };
 }
 
+/** ISO 周标识 → 该周周一的本地日期（isoWeekKey 的反函数，用来定位到那一周所在的月份） */
+function isoWeekMonday(week: string): Date {
+  const [year, weekNo] = week.split("-W").map(Number);
+  const jan4 = new Date(year, 0, 4); // 含 1 月 4 日的那一周就是第 1 周
+  const monday = new Date(jan4.getFullYear(), jan4.getMonth(), jan4.getDate() - ((jan4.getDay() + 6) % 7));
+  monday.setDate(monday.getDate() + (weekNo - 1) * 7);
+  return monday;
+}
+
 export default function Records({ vaultId }: { vaultId: number }) {
   const today = todayIso();
   const thisMonth = useMemo(() => monthOf(today), [today]);
@@ -105,6 +114,12 @@ export default function Records({ vaultId }: { vaultId: number }) {
   /** 日历下方统计：连续天数 / 今日字数（与插件那行一致） */
   const [streak, setStreak] = useState<number | null>(null);
   const [todayChars, setTodayChars] = useState<number | null>(null);
+  /** 文件列表：宽屏默认展开，窄屏默认收起（免得把正文顶到很下面） */
+  const [filesOpen, setFilesOpen] = useState(() => window.innerWidth > 860);
+  /** 文件列表的过滤词（日记按日期、周记按周号匹配） */
+  const [fileFilter, setFileFilter] = useState("");
+  /** 全部有日记的日期（不限当前月），供文件列表用 */
+  const [allDiaries, setAllDiaries] = useState<DateCount[]>([]);
 
   const grid = useMemo(() => monthGrid(ym), [ym]);
   const isThisMonth = ym.year === thisMonth.year && ym.month === thisMonth.month;
@@ -190,6 +205,18 @@ export default function Records({ vaultId }: { vaultId: number }) {
       .catch(() => setTodayChars(null));
   }, [vaultId, today]);
 
+  // 文件列表：列出全部有日记的日期（一次拉全量，后端按 record_date 分组很便宜）
+  useEffect(() => {
+    setAllDiaries([]);
+    const future = new Date();
+    future.setFullYear(future.getFullYear() + 1); // 预留给未来日期的日记
+    const to = iso(future.getFullYear(), future.getMonth() + 1, future.getDate());
+    api
+      .get<DateCount[]>(`/api/v1/vaults/${vaultId}/records/dates?from=2000-01-01&to=${to}`)
+      .then((list) => setAllDiaries(list.slice().sort((a, b) => (a.date < b.date ? 1 : -1))))
+      .catch(() => setAllDiaries([]));
+  }, [vaultId]);
+
   // 选中日期的记录
   useEffect(() => {
     setRecords([]);
@@ -239,6 +266,18 @@ export default function Records({ vaultId }: { vaultId: number }) {
     [counts, ym],
   );
 
+  /** 文件列表：周记按周号倒序 */
+  const weeklyList = useMemo(() => Object.keys(weeklyPaths).sort().reverse(), [weeklyPaths]);
+  const keyword = fileFilter.trim().toLowerCase();
+  const diaryEntries = useMemo(
+    () => (keyword ? allDiaries.filter((d) => d.date.toLowerCase().includes(keyword)) : allDiaries),
+    [allDiaries, keyword],
+  );
+  const weekEntries = useMemo(
+    () => (keyword ? weeklyList.filter((w) => w.toLowerCase().includes(keyword)) : weeklyList),
+    [weeklyList, keyword],
+  );
+
   /** 日期与周互斥：当前只看其中一种 */
   const pickDate = (date: string) => {
     setSelectedDate(date);
@@ -275,6 +314,22 @@ export default function Records({ vaultId }: { vaultId: number }) {
     setPendingToday(true);
   };
 
+  /** 从文件列表打开某天：日历翻到那个月，并选中那一天 */
+  const openFromList = (date: string) => {
+    setYm(monthOf(date));
+    setPickerOpen(false);
+    pickDate(date);
+  };
+
+  /** 从文件列表打开某周：翻到该周所在的月份并按周查看（不走 pickWeek 的再次点击取消） */
+  const openWeekFromList = (week: string) => {
+    const monday = isoWeekMonday(week);
+    setYm(monthOf(iso(monday.getFullYear(), monday.getMonth() + 1, monday.getDate())));
+    setPickerOpen(false);
+    setSelectedWeek(week);
+    setSelectedDate(null);
+  };
+
   const jumpMonth = (delta: number) => {
     setYm((cur) => shiftMonth(cur, delta));
     setPickerOpen(false);
@@ -308,7 +363,8 @@ export default function Records({ vaultId }: { vaultId: number }) {
       </div>
       {error && <div className="form-error">{error}</div>}
       <div className="records-layout">
-        <div className="calendar" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        <div className="records-side">
+          <div className="calendar" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           <div className="cal-nav">
             <button className="cal-nav-btn" onClick={() => jumpMonth(-1)} aria-label="上个月">
               ‹
@@ -432,6 +488,67 @@ export default function Records({ vaultId }: { vaultId: number }) {
             <span>本月 {monthDays} 天</span>
             <span>连续 {streak ?? "—"} 天</span>
             <span>{todayChars === null ? "今日 …" : todayChars > 0 ? `今日 ${todayChars} 字` : "今日未写"}</span>
+          </div>
+          </div>
+
+          {/* 文件列表：全部日记与周记，点一条即看内容（类似 Obsidian 左侧栏） */}
+          <div className="file-list">
+            <div className="file-list-head">
+              <button
+                type="button"
+                className="file-list-toggle"
+                aria-expanded={filesOpen}
+                onClick={() => setFilesOpen((v) => !v)}
+              >
+                <span className="file-list-arrow">{filesOpen ? "▾" : "▸"}</span>
+                文件列表
+              </button>
+              <span className="file-list-count">
+                {allDiaries.length} 日记 · {weeklyList.length} 周记
+              </span>
+            </div>
+            {filesOpen && (
+              <>
+                <input
+                  className="file-list-filter"
+                  value={fileFilter}
+                  placeholder="筛选，如 2026-09 或 W38"
+                  onChange={(e) => setFileFilter(e.target.value)}
+                />
+                <div className="file-list-body">
+                  <div className="file-list-section">
+                    日记 <span>{diaryEntries.length}</span>
+                  </div>
+                  {diaryEntries.map((d) => (
+                    <button
+                      key={d.date}
+                      className={selectedDate === d.date ? "file-item active" : "file-item"}
+                      onClick={() => openFromList(d.date)}
+                      title={`${d.date} · ${d.count} 篇`}
+                    >
+                      <span className="file-item-name">{d.date}</span>
+                      {d.count > 1 && <span className="file-item-count">{d.count}</span>}
+                    </button>
+                  ))}
+                  {diaryEntries.length === 0 && <div className="file-list-empty">没有匹配的日记</div>}
+
+                  <div className="file-list-section">
+                    周记 <span>{weekEntries.length}</span>
+                  </div>
+                  {weekEntries.map((w) => (
+                    <button
+                      key={w}
+                      className={selectedWeek === w ? "file-item active" : "file-item"}
+                      onClick={() => openWeekFromList(w)}
+                      title={`${w} 周记`}
+                    >
+                      <span className="file-item-name">{w}</span>
+                    </button>
+                  ))}
+                  {weekEntries.length === 0 && <div className="file-list-empty">没有匹配的周记</div>}
+                </div>
+              </>
+            )}
           </div>
         </div>
         <div className="records-main">

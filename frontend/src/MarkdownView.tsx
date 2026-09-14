@@ -51,10 +51,14 @@ export default function MarkdownView({ content }: { content: string }) {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const hasToc = headings.length >= 2;
+
   return (
-    <>
-      {headings.length >= 2 && (
-        <div className={tocOpen ? "md-toc md-toc-open" : "md-toc"}>
+    // 宽屏下目录是正文左侧的一条粘性栏（跟着滚动不会跑掉），收起时只留一个窄标签；
+    // 窄屏没有放栏位的空间，退回「正文上方一块可折叠的目录」（见 styles.css）
+    <div className={hasToc ? (tocOpen ? "md-split md-split-open" : "md-split md-split-closed") : "md-split"}>
+      {hasToc && (
+        <div className="md-toc">
           <button
             type="button"
             className="md-toc-toggle"
@@ -95,6 +99,6 @@ export default function MarkdownView({ content }: { content: string }) {
           {content}
         </ReactMarkdown>
       </div>
-    </>
+    </div>
   );
 }

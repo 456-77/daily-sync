@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { api, getAuth, setAuth } from "./api";
+import PanelHelp from "./PanelHelp";
 import type { UserInfo } from "./types";
 
 /**
@@ -113,7 +114,7 @@ export default function Profile() {
     <div className="panel">
       <div className="panel-head">
         <h2>个人主页</h2>
-        <span className="panel-hint">账号信息与登录凭证；改密码后所有设备都需要重新登录</span>
+        <PanelHelp>账号信息与登录凭证；改密码后所有设备都需要重新登录</PanelHelp>
       </div>
 
       <div className="profile-meta">

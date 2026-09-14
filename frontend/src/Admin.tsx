@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
 import { ACTION_LABELS, DANGER_ACTIONS } from "./AuditLogs";
+import PanelHelp from "./PanelHelp";
 import type { AdminAuditLog, AdminUser } from "./types";
 
 /**
@@ -19,7 +20,7 @@ export default function Admin() {
     <div className="panel">
       <div className="panel-head">
         <h2>管理</h2>
-        <span className="panel-hint">用户管理与全局操作日志（仅管理员可见）</span>
+        <PanelHelp>用户管理与全局操作日志（仅管理员可见）</PanelHelp>
       </div>
       <div className="admin-switch">
         <button

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
+import PanelHelp from "./PanelHelp";
 import type { AuditLog } from "./types";
 
 /** 后端事件类型 → 中文标签；未知类型兜底显示原字符串。管理页也复用这份映射 */
@@ -55,9 +56,7 @@ export default function AuditLogs() {
     <div className="panel">
       <div className="panel-head">
         <h2>审计日志</h2>
-        <span className="panel-hint">
-          记录登录成败、令牌签发/撤销、同步鉴权失败等安全事件（仅自己可见）
-        </span>
+        <PanelHelp>记录登录成败、令牌签发/撤销、同步鉴权失败等安全事件（仅自己可见）</PanelHelp>
       </div>
       {error && <p className="form-error">{error}</p>}
       <div className="table-wrap">

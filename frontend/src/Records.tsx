@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import MarkdownView from "./MarkdownView";
+import PanelHelp from "./PanelHelp";
 import type { DailyRecord, DateCount, WeeklyRecord } from "./types";
 
 /**
@@ -164,9 +165,10 @@ export default function Records({ vaultId }: { vaultId: number }) {
     <div className="panel">
       <div className="panel-head">
         <h2>日记浏览</h2>
-        <span className="panel-hint">
-          有记号的日期可点击查看；最左侧每行一格是周记，有周记的周会打点。内容只读，编辑请在 Obsidian 中进行
-        </span>
+        <PanelHelp>
+          有记号的日期可点击查看；最左侧每行一格是周记，有周记的周会打点。内容只读，编辑请在
+          Obsidian 中进行
+        </PanelHelp>
       </div>
       {error && <div className="form-error">{error}</div>}
       <div className="records-layout">

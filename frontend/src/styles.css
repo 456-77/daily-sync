@@ -298,9 +298,11 @@ button.danger:hover:not(:disabled) {
 }
 
 .panel-head {
+  position: relative; /* ? 浮层的定位锚点 */
   display: flex;
-  align-items: baseline;
-  gap: 14px;
+  /* 标题旁只剩一个圆形 ? 按钮，居中对齐比基线对齐更稳 */
+  align-items: center;
+  gap: 8px;
   margin-bottom: 16px;
 }
 
@@ -309,9 +311,76 @@ button.danger:hover:not(:disabled) {
   font-size: 17px;
 }
 
+/* 需要更醒目标题的面板（如待办）用这个修饰类 */
+.panel-title-lg {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
 .panel-hint {
   color: var(--muted);
   font-size: 12px;
+}
+
+/* ---------- 面板标题旁的 ? 说明（PanelHelp） ---------- */
+/*
+ * 说明文字默认收起，悬停（鼠标）或点击才弹出一张浮层卡片。
+ * 浮层相对 .panel-head 定位（不是相对 ? 本身），并让宽度以父级百分比封顶，
+ * 窄屏下不会顶出屏幕右边。触摸端的 :hover 会「粘住」，所以悬停只在
+ * 真正带指针悬停的设备上生效，触摸端只认点击状态。
+ */
+.panel-help {
+  display: flex;
+}
+
+.panel-help-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.panel-help-btn:hover:not(:disabled) {
+  background: #f0f2f5;
+  color: var(--text);
+}
+
+.panel-help-text {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 5;
+  width: max-content;
+  max-width: min(300px, 100%);
+  margin: 0;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .panel-help:hover .panel-help-text {
+    display: block;
+  }
+}
+
+.panel-help-open .panel-help-text {
+  display: block;
 }
 
 .inline-form {
@@ -764,15 +833,24 @@ button.danger:hover:not(:disabled) {
     border-radius: 8px;
   }
 
+  /* 标题旁的说明已收进 ? 气泡，标题行不必再竖排 */
   .panel-head {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
+    align-items: center;
+    gap: 6px;
     margin-bottom: 12px;
   }
 
   .panel-head h2 {
     font-size: 16px;
+  }
+
+  .panel-title-lg {
+    font-size: 18px;
+  }
+
+  /* 气泡贴住标题行左边缘，别被面板内边距挤出去 */
+  .panel-help-text {
+    max-width: min(300px, calc(100vw - 60px));
   }
 
   .login-card {
@@ -1129,84 +1207,8 @@ button.danger:hover:not(:disabled) {
 /* ---------- 待办事项（可编辑，与插件双向同步） ---------- */
 /*
  * 版面分四层：标题 / 操作栏（高频添加 + 低频筛选）/ 日期分组 / 列表项。
- * 每层之间靠间距和浅色分隔，不再让说明文字、输入框、筛选、列表糊成一团。
+ * 标题行与说明气泡走通用的 .panel-head + PanelHelp（见文件上方）。
  */
-.todo-head {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.todo-title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-}
-
-/* 说明文字收进 ? 里：悬停（鼠标）或点击（触摸）才展开，不占首屏 */
-.todo-help {
-  display: flex;
-}
-
-.todo-help-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: none;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1;
-}
-
-.todo-help-btn:hover:not(:disabled) {
-  background: #f0f2f5;
-  color: var(--text);
-}
-
-/*
- * 相对标题行定位（不是相对 ? 本身）：tooltip 从内容左边缘起排，
- * max-width 也用百分比封顶，窄屏下不会顶出屏幕右边。
- */
-.todo-help-text {
-  display: none;
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: 5;
-  width: max-content;
-  max-width: min(300px, 100%);
-  margin: 0;
-  padding: 8px 10px;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-/*
- * 悬停展开只在真正带指针悬停的设备上生效：触摸设备的 :hover 会「粘住」，
- * 点开后不点一次别处都散不掉。触摸端只认下面那个点击状态。
- */
-@media (hover: hover) and (pointer: fine) {
-  .todo-help:hover .todo-help-text {
-    display: block;
-  }
-}
-
-.todo-help-open .todo-help-text {
-  display: block;
-}
 
 /* --- 操作栏 --- */
 .todo-actions {

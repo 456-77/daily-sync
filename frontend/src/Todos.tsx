@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ApiError, api } from "./api";
+import PanelHelp from "./PanelHelp";
 import type { DailyRecord, TodoItem, TodoSnapshot } from "./types";
 
 /** 待办数据在云端的固定路径（与插件 TODO_SYNC_PATH 一致） */
@@ -57,9 +58,6 @@ export default function Todos({ vaultId }: { vaultId: number }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   /** 低频区（日期 + 两个筛选开关）默认收起，收起时只留一行摘要 */
   const [filtersOpen, setFiltersOpen] = useState(false);
-  /** 同步说明默认藏进 ? 里，不占首屏 */
-  const [helpOpen, setHelpOpen] = useState(false);
-  const helpRef = useRef<HTMLDivElement>(null);
   /** 触摸设备上被点亮的那一行（删除键随之显形）；鼠标设备靠 hover，用不到 */
   const [revealedId, setRevealedId] = useState<string | null>(null);
   const canHover = useHoverCapable();
@@ -89,26 +87,6 @@ export default function Todos({ vaultId }: { vaultId: number }) {
       })
       .finally(() => setLoading(false));
   }, [vaultId]);
-
-  /**
-   * 同步说明的收起：点面板以外任何位置、或按 Esc 都关掉。
-   * 只靠按钮再点一次太别扭，触摸设备尤其容易「打开后关不掉」。
-   */
-  useEffect(() => {
-    if (!helpOpen) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (!helpRef.current?.contains(e.target as Node)) setHelpOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setHelpOpen(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [helpOpen]);
 
   const flash = (text: string) => {
     setNotice(text);
@@ -296,24 +274,12 @@ export default function Todos({ vaultId }: { vaultId: number }) {
 
   return (
     <div className="panel">
-      <div className="todo-head">
-        <h2 className="todo-title">待办事项</h2>
-        <div className={helpOpen ? "todo-help todo-help-open" : "todo-help"} ref={helpRef}>
-          <button
-            type="button"
-            className="todo-help-btn"
-            aria-expanded={helpOpen}
-            aria-label="同步说明"
-            title="同步说明"
-            onClick={() => setHelpOpen((v) => !v)}
-          >
-            ?
-          </button>
-          <p className="todo-help-text">
-            改动会同步到 Obsidian；两端同时修改时按条目合并（后改的赢）。双击待办文字可编辑，
-            悬停（手机点一下）该行会出现删除键。
-          </p>
-        </div>
+      <div className="panel-head">
+        <h2 className="panel-title-lg">待办事项</h2>
+        <PanelHelp>
+          改动会同步到 Obsidian；两端同时修改时按条目合并（后改的赢）。双击待办文字可编辑，
+          悬停（手机点一下）该行会出现删除键。
+        </PanelHelp>
       </div>
 
       {error && <div className="form-error">{error}</div>}

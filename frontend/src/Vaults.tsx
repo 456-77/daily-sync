@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import PanelHelp from "./PanelHelp";
 import type { VaultInfo } from "./types";
 
 /**
@@ -15,9 +16,9 @@ export default function Vaults({ vaults, reload }: { vaults: VaultInfo[]; reload
     <div className="panel">
       <div className="panel-head">
         <h2>仓库</h2>
-        <span className="panel-hint">
+        <PanelHelp>
           仓库 = 一个 Obsidian 库，由插件首次同步时按库名自动创建；顶栏下拉框切换当前仓库
-        </span>
+        </PanelHelp>
       </div>
       <div className="table-wrap">
         <table className="table">

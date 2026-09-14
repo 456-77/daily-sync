@@ -1221,7 +1221,16 @@ button.danger:hover:not(:disabled) {
   line-height: 1.6;
 }
 
-.todo-help:hover .todo-help-text,
+/*
+ * 悬停展开只在真正带指针悬停的设备上生效：触摸设备的 :hover 会「粘住」，
+ * 点开后不点一次别处都散不掉。触摸端只认下面那个点击状态。
+ */
+@media (hover: hover) and (pointer: fine) {
+  .todo-help:hover .todo-help-text {
+    display: block;
+  }
+}
+
 .todo-help-open .todo-help-text {
   display: block;
 }

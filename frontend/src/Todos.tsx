@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, api } from "./api";
 import type { DailyRecord, TodoItem, TodoSnapshot } from "./types";
 
@@ -59,6 +59,7 @@ export default function Todos({ vaultId }: { vaultId: number }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   /** 同步说明默认藏进 ? 里，不占首屏 */
   const [helpOpen, setHelpOpen] = useState(false);
+  const helpRef = useRef<HTMLDivElement>(null);
   /** 触摸设备上被点亮的那一行（删除键随之显形）；鼠标设备靠 hover，用不到 */
   const [revealedId, setRevealedId] = useState<string | null>(null);
   const canHover = useHoverCapable();
@@ -88,6 +89,26 @@ export default function Todos({ vaultId }: { vaultId: number }) {
       })
       .finally(() => setLoading(false));
   }, [vaultId]);
+
+  /**
+   * 同步说明的收起：点面板以外任何位置、或按 Esc 都关掉。
+   * 只靠按钮再点一次太别扭，触摸设备尤其容易「打开后关不掉」。
+   */
+  useEffect(() => {
+    if (!helpOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!helpRef.current?.contains(e.target as Node)) setHelpOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setHelpOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [helpOpen]);
 
   const flash = (text: string) => {
     setNotice(text);
@@ -277,7 +298,7 @@ export default function Todos({ vaultId }: { vaultId: number }) {
     <div className="panel">
       <div className="todo-head">
         <h2 className="todo-title">待办事项</h2>
-        <div className={helpOpen ? "todo-help todo-help-open" : "todo-help"}>
+        <div className={helpOpen ? "todo-help todo-help-open" : "todo-help"} ref={helpRef}>
           <button
             type="button"
             className="todo-help-btn"

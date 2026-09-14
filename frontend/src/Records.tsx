@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import MarkdownView from "./MarkdownView";
 import PanelHelp from "./PanelHelp";
@@ -8,15 +8,14 @@ import type { DailyRecord, DateCount, WeeklyRecord } from "./types";
  * 日记浏览：月历打点（各日记录数）→ 点日期看当天记录 → 看内容（Markdown 渲染）。
  * 数据来自插件同步上来的 daily_records（record_date 按文件名首段解析）。
  *
- * 日历第一列是「周记列」（显示 ISO 周号）：该周有周记就打一个菱形标记，
- * 点击在右侧看全文。周记没有 record_date，进不了按日查询，因此走单独的
- * /records/weekly（取周→路径）与 /records/file（按路径取正文）两个接口。
- *
- * 三种状态刻意分开，避免混在一起：
- * - 今天：浅蓝底 + 加粗日期
- * - 选中：主题色实心 + 白色描边
- * - 有日记：不染整格，只挂一个角标（数字＝篇数，超过 9 显示 9+）
- * 相邻月的日期统一渲染成灰色小字，点击即翻到那个月。
+ * 版式刻意与 Obsidian 插件（quick-daily-note）的日历面板对齐：
+ * - 一个 grid 装下 6 周（不是每周一个 grid），周号列与日期之间有一条贯穿的竖线
+ * - 每格纵向排列：日期在上、记录圆点在下；圆点占位恒定，行高不会忽高忽低
+ * - 今天＝主题色加粗文字（不铺底色）；选中＝实心主题色；相邻月＝淡灰
+ * - 周记列显示 ISO 周号，有周记时同样打一个圆点
+ * - 日历下方一行统计：本月 N 天 / 连续 N 天 / 今日 N 字
+ * 比插件多的两件事：篇数放在 title 里（悬停可见），以及年月快跳、横滑切月、
+ * 「回到今天」这些导航能力——插件里没有对应交互，不算视觉差异。
  */
 interface YearMonth {
   year: number;
@@ -27,6 +26,8 @@ const WEEKDAYS = ["一", "二", "三", "四", "五", "六", "日"];
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 /** 横滑判定：位移超过这个像素才算切月，避免和纵向滚动/点按冲突 */
 const SWIPE_THRESHOLD = 50;
+/** 连续天数的回溯上限（插件里是 730，这里取一年足够，少拉点数据） */
+const STREAK_DAYS = 366;
 
 function iso(y: number, m: number, d: number): string {
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -79,11 +80,6 @@ function shiftMonth({ year, month }: YearMonth, delta: number): YearMonth {
   return { year: d.getFullYear(), month: d.getMonth() + 1 };
 }
 
-/** 角标里的篇数：超过 9 截断，避免把格子撑变形 */
-function countLabel(n: number): string {
-  return n > 9 ? "9+" : String(n);
-}
-
 export default function Records({ vaultId }: { vaultId: number }) {
   const today = todayIso();
   const thisMonth = useMemo(() => monthOf(today), [today]);
@@ -106,11 +102,14 @@ export default function Records({ vaultId }: { vaultId: number }) {
   const [pendingToday, setPendingToday] = useState(false);
   /** 触摸横滑的起点 */
   const touchStart = useRef<{ x: number; y: number } | null>(null);
+  /** 日历下方统计：连续天数 / 今日字数（与插件那行一致） */
+  const [streak, setStreak] = useState<number | null>(null);
+  const [todayChars, setTodayChars] = useState<number | null>(null);
 
   const grid = useMemo(() => monthGrid(ym), [ym]);
   const isThisMonth = ym.year === thisMonth.year && ym.month === thisMonth.month;
 
-  /** 42 格按周切成 6 行，行首带该行的 ISO 周标识 */
+  /** 42 格按周切成 6 行，行首带上该行的 ISO 周标识 */
   const weeks = useMemo(() => {
     const rows: { week: string; cells: { date: string; inMonth: boolean }[] }[] = [];
     for (let i = 0; i < grid.length; i += 7) {
@@ -157,6 +156,40 @@ export default function Records({ vaultId }: { vaultId: number }) {
       .catch((err) => setError(err instanceof Error ? err.message : "加载周记失败"));
   }, [vaultId]);
 
+  // 统计行：连续天数（往回数一年）与今日字数
+  useEffect(() => {
+    setStreak(null);
+    setTodayChars(null);
+    const cursor = new Date();
+    const from = iso(
+      new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() - STREAK_DAYS + 1).getFullYear(),
+      new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() - STREAK_DAYS + 1).getMonth() + 1,
+      new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() - STREAK_DAYS + 1).getDate(),
+    );
+    api
+      .get<DateCount[]>(`/api/v1/vaults/${vaultId}/records/dates?from=${from}&to=${today}`)
+      .then((list) => {
+        const days = new Set(list.map((item) => item.date));
+        let n = 0;
+        const d = new Date();
+        while (n < STREAK_DAYS) {
+          if (!days.has(iso(d.getFullYear(), d.getMonth() + 1, d.getDate()))) break;
+          n++;
+          d.setDate(d.getDate() - 1);
+        }
+        setStreak(n);
+      })
+      .catch(() => setStreak(null));
+
+    api
+      .get<DailyRecord[]>(`/api/v1/vaults/${vaultId}/records?date=${today}`)
+      .then((list) =>
+        // 与插件一致：按「去掉空白后的字符数」统计
+        setTodayChars(list.reduce((n, r) => n + r.content.replace(/\s+/g, "").length, 0)),
+      )
+      .catch(() => setTodayChars(null));
+  }, [vaultId, today]);
+
   // 选中日期的记录
   useEffect(() => {
     setRecords([]);
@@ -200,6 +233,12 @@ export default function Records({ vaultId }: { vaultId: number }) {
     };
   }, [pickerOpen]);
 
+  /** 本月写日记的天数：counts 已覆盖整月，直接数 */
+  const monthDays = useMemo(
+    () => Object.keys(counts).filter((d) => monthOf(d).year === ym.year && monthOf(d).month === ym.month).length,
+    [counts, ym],
+  );
+
   /** 日期与周互斥：当前只看其中一种 */
   const pickDate = (date: string) => {
     setSelectedDate(date);
@@ -212,13 +251,12 @@ export default function Records({ vaultId }: { vaultId: number }) {
   };
 
   /**
-   * 点格子：本月有日记 → 看那天；相邻月 → 先翻到那个月，
-   * 那天正好有日记就顺手打开（否则只翻月，不留下选中态）。
+   * 点格子：本月有记录 → 看那天；相邻月 → 先翻到那个月，
+   * 那天正好有记录就顺手打开（否则只翻月，不留下选中态）。
    */
   const pickCell = (cell: { date: string; inMonth: boolean }, count: number) => {
     if (!cell.inMonth) {
-      const next = monthOf(cell.date);
-      setYm(next);
+      setYm(monthOf(cell.date));
       setPickerOpen(false);
       if (count > 0) pickDate(cell.date);
       else {
@@ -264,8 +302,8 @@ export default function Records({ vaultId }: { vaultId: number }) {
       <div className="panel-head">
         <h2>日记浏览</h2>
         <PanelHelp>
-          点有角标的日期看当天日记，点最左侧的周号看该周周记；相邻月的灰色日期可直接点击翻月。
-          内容只读，编辑请在 Obsidian 中进行。
+          圆点表示那天有日记，周号列下的圆点表示该周有周记；点日期看当天日记，点周号看该周周记。
+          相邻月的灰色日期可直接点击翻月。内容只读，编辑请在 Obsidian 中进行。
         </PanelHelp>
       </div>
       {error && <div className="form-error">{error}</div>}
@@ -335,67 +373,65 @@ export default function Records({ vaultId }: { vaultId: number }) {
               ›
             </button>
           </div>
-          <div className="cal-grid cal-weekdays">
-            <span className="cal-week-head">周</span>
+
+          {/* 整个月用一个 grid：周号列与日期之间那条竖线才能贯穿 6 周不断开 */}
+          <div className="cal-grid">
+            {/* 插件这里写的是 "W"，你之前提过首字母对中文用户不直观，保留「周」 */}
+            <div className="cal-cell cal-weekday cal-week-head">周</div>
             {WEEKDAYS.map((w) => (
-              <span key={w}>{w}</span>
+              <div className="cal-cell cal-weekday" key={w}>
+                {w}
+              </div>
+            ))}
+            {weeks.map(({ week, cells }) => (
+              <Fragment key={week}>
+                <button
+                  className={selectedWeek === week ? "cal-week-cell active" : "cal-week-cell"}
+                  onClick={() => pickWeek(week)}
+                  title={weeklyPaths[week] ? `${week} 周记` : `${week}（还没有周记）`}
+                >
+                  {Number(week.slice(6))}
+                  <span className={weeklyPaths[week] ? "cal-dot" : "cal-dot cal-dot-off"} />
+                </button>
+                {cells.map((cell) => {
+                  const count = counts[cell.date] ?? 0;
+                  const cls = [
+                    "cal-cell",
+                    cell.inMonth ? "" : "cal-outside",
+                    cell.date === today ? "cal-today" : "",
+                    cell.date === selectedDate ? "cal-selected" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+                  return (
+                    <button
+                      key={cell.date}
+                      className={cls}
+                      onClick={() => pickCell(cell, count)}
+                      // 相邻月的格子即使没有记录也能点（用来翻月）
+                      disabled={cell.inMonth && count === 0}
+                      title={
+                        count > 0
+                          ? `${cell.date} · ${count} 篇`
+                          : cell.inMonth
+                            ? undefined
+                            : `跳到 ${monthOf(cell.date).year} 年 ${monthOf(cell.date).month} 月`
+                      }
+                    >
+                      {Number(cell.date.slice(8))}
+                      {/* 圆点常驻占位，行高不随有无记录变化 */}
+                      <span className={count > 0 ? "cal-dot" : "cal-dot cal-dot-off"} />
+                    </button>
+                  );
+                })}
+              </Fragment>
             ))}
           </div>
-          {weeks.map(({ week, cells }) => (
-            <div
-              className={weeklyPaths[week] ? "cal-grid cal-week-has" : "cal-grid"}
-              key={week}
-            >
-              <button
-                className={selectedWeek === week ? "cal-week-cell active" : "cal-week-cell"}
-                onClick={() => pickWeek(week)}
-                title={weeklyPaths[week] ? `${week} 周记` : `${week}（还没有周记）`}
-              >
-                {Number(week.slice(6))}
-                {weeklyPaths[week] && <span className="cal-week-mark" />}
-              </button>
-              {cells.map((cell) => {
-                const count = counts[cell.date] ?? 0;
-                const cls = [
-                  "cal-cell",
-                  cell.inMonth ? "" : "out",
-                  cell.date === today ? "today" : "",
-                  cell.date === selectedDate ? "selected" : "",
-                  count > 0 ? "has" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ");
-                return (
-                  <button
-                    key={cell.date}
-                    className={cls}
-                    onClick={() => pickCell(cell, count)}
-                    // 相邻月的格子即使没有日记也能点（用来翻月）
-                    disabled={cell.inMonth && count === 0}
-                    title={
-                      count > 0
-                        ? `${cell.date} · ${count} 篇`
-                        : cell.inMonth
-                          ? undefined
-                          : `跳到 ${monthOf(cell.date).year} 年 ${monthOf(cell.date).month} 月`
-                    }
-                  >
-                    <span className="cal-day">{Number(cell.date.slice(8))}</span>
-                    {count > 0 && <span className="cal-badge">{countLabel(count)}</span>}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-          <div className="cal-legend">
-            <span className="cal-legend-item">
-              <span className="cal-badge cal-legend-badge">3</span>
-              有日记（数字＝篇数）
-            </span>
-            <span className="cal-legend-item">
-              <span className="cal-week-mark" />
-              有周记
-            </span>
+
+          <div className="cal-stats">
+            <span>本月 {monthDays} 天</span>
+            <span>连续 {streak ?? "—"} 天</span>
+            <span>{todayChars === null ? "今日 …" : todayChars > 0 ? `今日 ${todayChars} 字` : "今日未写"}</span>
           </div>
         </div>
         <div className="records-main">

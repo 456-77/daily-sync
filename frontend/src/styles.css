@@ -888,33 +888,6 @@ button.danger:hover:not(:disabled) {
   .password-toggle {
     min-height: 0;
   }
-
-  /* 回顶按钮贴近屏幕边缘，省出正文宽度 */
-  .to-top {
-    right: 14px;
-    bottom: calc(14px + env(safe-area-inset-bottom));
-    width: 38px;
-    height: 38px;
-  }
-
-  /* 待办：日期条与列表收一收留白，删除按钮给出更大的触摸目标 */
-  .todo-day-head {
-    gap: 6px;
-    padding: 8px 10px;
-  }
-
-  .todo-list {
-    padding: 8px 10px 10px;
-    gap: 9px;
-  }
-
-  .todo-del {
-    padding: 4px 10px;
-  }
-
-  .todo-carryover {
-    padding: 4px 2px;
-  }
 }
 
 /* ---------- Markdown 正文（GFM + 代码高亮） ---------- */
@@ -1491,8 +1464,12 @@ button.danger:hover:not(:disabled) {
   transform: rotate(45deg);
 }
 
+/*
+ * 文字块按内容宽度收（不撑满整行）：短待办时删除键紧跟在文字后面，
+ * 不会飘到屏幕最右侧让人对不上号；长待办仍会占满可用宽度正常折行。
+ */
 .todo-text {
-  flex: 1 1 0;
+  flex: 0 1 auto;
   min-width: 0;
   word-break: break-word;
 }
@@ -1519,7 +1496,8 @@ button.danger:hover:not(:disabled) {
  */
 .todo-del {
   flex: none;
-  padding: 2px 8px;
+  /* 收紧左右内边距，让它贴住文字末端（行间距 9px + 这里 5px） */
+  padding: 2px 5px;
   border: none;
   background: none;
   color: var(--muted);
@@ -1727,4 +1705,39 @@ button.danger:hover:not(:disabled) {
   background: rgba(47, 111, 235, 0.12);
   color: var(--primary);
   font-weight: 600;
+}
+
+/*
+ * ---------- 移动端微调：待办与回顶 ----------
+ * 刻意放在文件最末尾：这些选择器的基础规则定义在更靠前的位置，同优先级下
+ * 靠后的声明胜出，写进上面那段 640px 里会被静默覆盖（曾经如此）。
+ */
+@media (max-width: 640px) {
+  /* 日期条与列表收一收留白 */
+  .todo-day-head {
+    gap: 6px;
+    padding: 8px 10px;
+  }
+
+  .todo-list {
+    padding: 8px 10px 10px;
+    gap: 9px;
+  }
+
+  /* 触摸端删除键靠「点该行」显形，给足点击面积 */
+  .todo-del {
+    padding: 5px 6px;
+  }
+
+  .todo-carryover {
+    padding: 4px 2px;
+  }
+
+  /* 回顶按钮贴近屏幕边缘，省出正文宽度 */
+  .to-top {
+    right: 14px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    width: 38px;
+    height: 38px;
+  }
 }

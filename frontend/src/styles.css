@@ -553,19 +553,150 @@ button.danger:hover:not(:disabled) {
 }
 
 .cal-nav {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   margin-bottom: 10px;
 }
 
+.cal-nav-btn {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.cal-nav-btn:hover:not(:disabled) {
+  background: #f0f2f5;
+  color: var(--text);
+}
+
+/* 标题兼作「年月快速跳转」的入口，居中占满中间那段 */
+.cal-nav-center {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+
 .cal-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: none;
+  background: none;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.cal-title:hover:not(:disabled) {
+  background: #f0f2f5;
+}
+
+.cal-caret {
+  font-size: 9px;
+  color: var(--muted);
+}
+
+/* 不在本月时才出现的快捷回位 */
+.cal-today-btn {
+  flex: none;
+  padding: 4px 8px;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.cal-today-btn:hover:not(:disabled) {
+  background: none;
+  text-decoration: underline;
+}
+
+/* 年月选择面板 */
+.cal-picker {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  width: 224px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.cal-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cal-picker-head button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.cal-picker-head button:hover:not(:disabled) {
+  background: #f0f2f5;
+  color: var(--text);
+}
+
+.cal-picker-months {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.cal-picker-month {
+  padding: 6px 0;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.cal-picker-month:hover:not(:disabled) {
+  background: #f0f2f5;
+}
+
+/* 当前显示的那个月 */
+.cal-picker-month.current {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* 今天所在的月：加一圈描边，方便找回来 */
+.cal-picker-month.is-today:not(.current) {
+  box-shadow: inset 0 0 0 1px var(--primary);
+  color: var(--primary);
 }
 
 .cal-grid {
   display: grid;
-  /* 第一列是周记列（W），其后七列是周一到周日 */
+  /* 第一列是周记列（周），其后七列是周一到周日 */
   grid-template-columns: 26px repeat(7, 1fr);
   gap: 4px;
 }
@@ -582,7 +713,13 @@ button.danger:hover:not(:disabled) {
   font-weight: 600;
 }
 
-/* 周记列：每行行首一格，显示该行所在 ISO 周号，有周记时右下角打点 */
+/* 有周记的那一周：整行一层极淡底色，一眼看出这周有东西 */
+.cal-week-has {
+  background: rgba(47, 111, 235, 0.05);
+  border-radius: 8px;
+}
+
+/* 周记列：行首一格显示 ISO 周号，有周记时打个菱形标记 */
 .cal-week-cell {
   position: relative;
   border: none;
@@ -606,17 +743,23 @@ button.danger:hover:not(:disabled) {
   color: #fff;
 }
 
-.cal-week-dot {
+/*
+ * 周记标记：菱形（旋转 45° 的方块），和日期的圆形数字角标形状不同，
+ * 不靠颜色也能区分（色弱友好）。
+ */
+.cal-week-mark {
   position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
+  left: 50%;
+  bottom: 1px;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 1px;
   background: var(--primary);
+  transform: rotate(45deg);
 }
 
-.cal-week-cell.active .cal-week-dot {
+.cal-week-cell.active .cal-week-mark {
   background: #fff;
 }
 
@@ -633,44 +776,118 @@ button.danger:hover:not(:disabled) {
   padding: 0;
 }
 
+/*
+ * 三种状态的优先级：相邻月 < 有日记 < 今天 < 选中，
+ * 同一元素可能同时命中多个类（今天往往也有日记），所以顺序不能乱：
+ * 越靠后的规则越"强"，选中一定写在最后。
+ */
 .cal-cell.out {
-  color: #c6cbd1;
+  font-size: 12px;
 }
 
+/* 有日记：不染底色，只留角标（篇数看角标，格子本身保持干净） */
 .cal-cell.has {
-  background: rgba(47, 111, 235, 0.1);
-  color: var(--primary);
-  font-weight: 600;
+  color: var(--text);
 }
 
-.cal-cell.has:hover:not(:disabled) {
-  background: rgba(47, 111, 235, 0.2);
+.cal-cell.has:not(.selected):hover:not(:disabled) {
+  background: rgba(47, 111, 235, 0.08);
 }
 
+/* 今天：浅蓝底 + 加粗（不加描边，免得和选中态分不清） */
 .cal-cell.today {
-  outline: 1.5px solid var(--primary);
+  background: rgba(47, 111, 235, 0.12);
+  color: var(--primary);
+  font-weight: 700;
 }
 
+/* 选中：实心主题色 + 一圈白描边 */
 .cal-cell.selected {
   background: var(--primary);
   color: #fff;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 2px #fff;
+}
+
+/* 相邻月一律灰色小字（哪怕那天有日记或就是今天）——它属于上/下个月，
+   弱化才对；但已选中的格子要保住白字，所以排除它 */
+.cal-cell.out:not(.selected) {
+  color: #b7bdc5;
+  font-size: 12px;
+}
+
+.cal-cell.out:hover:not(:disabled) {
+  background: #f0f2f5;
 }
 
 .cal-badge {
   position: absolute;
-  top: 3px;
-  right: 4px;
+  top: 2px;
+  right: 3px;
+  min-width: 14px;
   font-size: 10px;
+  line-height: 13px;
+  text-align: center;
   background: var(--primary);
   color: #fff;
   border-radius: 8px;
-  padding: 0 5px;
-  line-height: 14px;
+  padding: 0 3px;
 }
 
 .cal-cell.selected .cal-badge {
   background: #fff;
   color: var(--primary);
+}
+
+/* 图例：常驻一行，说明角标与菱形各代表什么 */
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.cal-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* 图例里的样例角标不参与定位，回到普通流 */
+.cal-legend-badge {
+  position: static;
+}
+
+.cal-legend-item .cal-week-mark {
+  position: static;
+  margin: 0;
+}
+
+/* 切换日期/周时正文淡入滑动一下，「点哪里看哪里」的对应关系更明确 */
+@keyframes record-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.record-view {
+  animation: record-in 0.18s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .record-view {
+    animation: none;
+  }
 }
 
 .records-main {

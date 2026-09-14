@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { api, getAuth, setAuth } from "./api";
 import type { UserInfo, VaultInfo } from "./types";
 import Login from "./Login";
@@ -23,20 +23,67 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "audit", label: "日志" },
 ];
 
+/**
+ * 页签容器：首次进入才挂载，之后一直留着，只把非当前页隐藏。
+ * 之前是条件渲染，切走就整棵卸载 —— 选中的日期、读到的位置全丢，
+ * 切回来等于重置。
+ */
+function TabPanel({
+  active,
+  opened,
+  children,
+}: {
+  active: boolean;
+  opened: boolean;
+  children: ReactNode;
+}) {
+  if (!opened) return null;
+  return <div style={active ? undefined : { display: "none" }}>{children}</div>;
+}
+
 /** 认证门 + 主框架：顶栏（用户名/退出）+ 三个功能页签 */
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(!!getAuth());
   const [tab, setTab] = useState<Tab>("records");
+  /** 打开过的页签；初始页签已经在看，先记上 */
+  const [opened, setOpened] = useState<Set<Tab>>(() => new Set<Tab>(["records"]));
+  /** 每个页签各自的滚动位置：切走时记下，切回来还原 */
+  const scrollMemo = useRef<Record<string, number>>({});
   const [vaults, setVaults] = useState<VaultInfo[]>([]);
   const [selectedVault, setSelectedVault] = useState<number | null>(null);
   /** 是否管理员，决定导航里是否出现「管理」；真正的边界在服务端 */
   const [isAdmin, setIsAdmin] = useState(false);
 
-  useEffect(() => {
-    const onLogout = () => setLoggedIn(false);
-    window.addEventListener("ds-logout", onLogout);
-    return () => window.removeEventListener("ds-logout", onLogout);
+  const switchTab = useCallback(
+    (next: Tab) => {
+      if (next === tab) return;
+      scrollMemo.current[tab] = window.scrollY;
+      setOpened((prev) => (prev.has(next) ? prev : new Set(prev).add(next)));
+      setTab(next);
+    },
+    [tab],
+  );
+
+  // 换页后把目标页原来的位置还原。各页一直挂着、高度就绪，
+  // 所以在布局阶段直接跳，不会先闪一下顶部。
+  useLayoutEffect(() => {
+    window.scrollTo(0, scrollMemo.current[tab] ?? 0);
+  }, [tab]);
+
+  /** 退出（含令牌失效时的 ds-logout）：顺带清掉页签挂载与滚动记忆，
+      免得下一个账号继承上一个账号的现场 */
+  const logout = useCallback(() => {
+    setAuth(null);
+    setLoggedIn(false);
+    setOpened(new Set<Tab>(["records"]));
+    scrollMemo.current = {};
+    setTab("records");
   }, []);
+
+  useEffect(() => {
+    window.addEventListener("ds-logout", logout);
+    return () => window.removeEventListener("ds-logout", logout);
+  }, [logout]);
 
   const reloadVaults = useCallback(() => {
     api
@@ -91,7 +138,7 @@ export default function App() {
             <button
               key={t.key}
               className={tab === t.key ? "tab tab-active" : "tab"}
-              onClick={() => setTab(t.key)}
+              onClick={() => switchTab(t.key)}
             >
               {t.label}
             </button>
@@ -116,7 +163,7 @@ export default function App() {
           <button
             type="button"
             className="topbar-user"
-            onClick={() => setTab("profile")}
+            onClick={() => switchTab("profile")}
             title="个人主页"
           >
             {getAuth()?.username}
@@ -125,8 +172,7 @@ export default function App() {
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              setAuth(null);
-              setLoggedIn(false);
+              logout();
             }}
           >
             退出
@@ -134,22 +180,32 @@ export default function App() {
         </span>
       </header>
       <main className="content">
-        {tab === "vaults" && <Vaults vaults={vaults} reload={reloadVaults} />}
-        {tab === "records" &&
-          (selectedVault != null ? (
+        <TabPanel active={tab === "vaults"} opened={opened.has("vaults")}>
+          <Vaults vaults={vaults} reload={reloadVaults} />
+        </TabPanel>
+        <TabPanel active={tab === "records"} opened={opened.has("records")}>
+          {selectedVault != null ? (
             <Records vaultId={selectedVault} />
           ) : (
             <div className="panel empty">请先在「仓库」页创建或选择一个仓库</div>
-          ))}
-        {tab === "todos" &&
-          (selectedVault != null ? (
+          )}
+        </TabPanel>
+        <TabPanel active={tab === "todos"} opened={opened.has("todos")}>
+          {selectedVault != null ? (
             <Todos vaultId={selectedVault} />
           ) : (
             <div className="panel empty">请先在「仓库」页创建或选择一个仓库</div>
-          ))}
-        {tab === "audit" && <AuditLogs />}
-        {tab === "profile" && <Profile />}
-        {tab === "admin" && isAdmin && <Admin />}
+          )}
+        </TabPanel>
+        <TabPanel active={tab === "audit"} opened={opened.has("audit")}>
+          <AuditLogs />
+        </TabPanel>
+        <TabPanel active={tab === "profile"} opened={opened.has("profile")}>
+          <Profile />
+        </TabPanel>
+        <TabPanel active={tab === "admin"} opened={opened.has("admin") && isAdmin}>
+          <Admin />
+        </TabPanel>
       </main>
       <BackToTop />
     </div>

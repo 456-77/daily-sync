@@ -134,12 +134,21 @@ public class AttachmentController {
                 .contentLength(blob.size())
                 // 类型由服务端按扩展名白名单决定，这里再明确禁止浏览器自行嗅探
                 .header("X-Content-Type-Options", "nosniff")
+                // 告诉调用方「这份字节在库里是哪个路径」。插件按文件名（name=）来取时，
+                // 只有服务端知道它解析到了哪个路径（同目录优先 → 最短路径 → 字典序），
+                // 而插件必须把文件落在同一个路径上，否则下一轮扫描会把它当成另一个附件重复上传
+                .header("X-Attachment-Path", encodeHeaderValue(blob.path()))
                 // 按 path 寻址，内容可能随 path 变化，因此不能用 immutable 缓存；
                 // 换内容必然换 sha256，用 ETag 让浏览器反复验证而不是反复重下
                 .header(HttpHeaders.ETAG, "\"" + blob.sha256() + "\"")
                 .header(HttpHeaders.CACHE_CONTROL, "private, max-age=0, must-revalidate")
                 .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition(blob.name()))
                 .body(new FileSystemResource(blob.file()));
+    }
+
+    /** 响应头只能承载 ISO-8859-1：路径里的中文必须百分号编码（空格用 %20 而非 +）。 */
+    private static String encodeHeaderValue(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
     /**

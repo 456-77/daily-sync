@@ -85,6 +85,40 @@ public class VaultService {
         return vault;
     }
 
+    /**
+     * 按名取属于当前用户的仓库，<b>仅用于读取</b>（附件下载）。
+     *
+     * <p>刻意不走 {@link #findOrCreateVault}：上传路径"按名 find-or-create"是有意的
+     * （插件首次同步建仓），但读接口不能建仓——否则仅仅一次库名拼错的下载请求，
+     * 就会在账号下凭空多出一个空仓库。
+     */
+    public Vault ownedVaultByName(Long userId, String name) {
+        String trimmed = name == null ? "" : name.trim();
+        Vault vault = trimmed.isEmpty() ? null : selectByName(userId, trimmed);
+        if (vault == null) {
+            throw new BizException(HttpStatus.NOT_FOUND, "仓库不存在");
+        }
+        return vault;
+    }
+
+    /**
+     * 原子递增仓库版本号并返回新值。正文（{@link SyncService#push} 内联同一写法）
+     * 与附件共用这一个计数器，两者因此落在同一条拉取游标上。
+     * InnoDB 行锁保证并发自增各自拿到不同的版本号。
+     */
+    public long bumpVersion(Long vaultId) {
+        vaultMapper.update(null, Wrappers.<Vault>lambdaUpdate()
+                .eq(Vault::getId, vaultId)
+                .setSql("version = version + 1"));
+        return currentVersion(vaultId);
+    }
+
+    /** 读当前版本号（无变更场景回给客户端，供其判断是否推进游标）。 */
+    public long currentVersion(Long vaultId) {
+        Vault vault = vaultMapper.selectById(vaultId);
+        return vault == null ? 0L : vault.getVersion();
+    }
+
     private VaultResponse toResponse(Vault vault) {
         return new VaultResponse(vault.getId(), vault.getName(), vault.getVersion(), vault.getCreatedAt());
     }

@@ -66,7 +66,8 @@ async function tryRefresh(): Promise<boolean> {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown, allowRefresh = true): Promise<T> {
+/** 单次 fetch（带令牌）。401 且允许续期时刷新令牌后重试一次，仍失败则登出 */
+async function rawFetch(method: string, path: string, body: unknown, allowRefresh = true): Promise<Response> {
   const headers: Record<string, string> = {};
   if (auth) headers.Authorization = `Bearer ${auth.accessToken}`;
   if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -75,22 +76,45 @@ async function request<T>(method: string, path: string, body?: unknown, allowRef
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const json = await res.json().catch(() => undefined);
 
   if (res.status === 401 && allowRefresh && auth && !path.startsWith("/api/v1/auth/")) {
-    if (await tryRefresh()) return request<T>(method, path, body, false);
+    if (await tryRefresh()) return rawFetch(method, path, body, false);
     setAuth(null);
     window.dispatchEvent(new Event("ds-logout"));
     throw new ApiError(401, "登录已过期，请重新登录");
   }
+  return res;
+}
+
+/** JSON 接口：统一解 ApiResponse 信封 */
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const res = await rawFetch(method, path, body);
+  const json = await res.json().catch(() => undefined);
   if (!res.ok || !json || json.code !== 0) {
     throw new ApiError(res.status, json?.message ?? `请求失败（HTTP ${res.status}）`);
   }
   return json.data as T;
 }
 
+/**
+ * 二进制接口（附件图片 / PDF）。
+ *
+ * 必须走带 Authorization 的 fetch 再转 objectURL：`<img src>` 发不出自定义请求头，
+ * 把接口地址直接塞进 src 只会拿到 401。错误响应仍是 JSON 信封，这里尽力读出服务端消息
+ * （如「附件不存在」），让占位能显示有用的原因而不是一句"加载失败"。
+ */
+async function requestBlob(path: string): Promise<Blob> {
+  const res = await rawFetch("GET", path, undefined);
+  if (!res.ok) {
+    const json = await res.json().catch(() => undefined);
+    throw new ApiError(res.status, json?.message ?? `附件加载失败（HTTP ${res.status}）`);
+  }
+  return res.blob();
+}
+
 export const api = {
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
   del: <T>(path: string) => request<T>("DELETE", path),
+  blob: (path: string) => requestBlob(path),
 };

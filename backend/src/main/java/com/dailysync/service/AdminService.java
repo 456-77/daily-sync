@@ -4,11 +4,13 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.dailysync.common.BizException;
 import com.dailysync.dto.AdminAuditLogResponse;
 import com.dailysync.dto.AdminUserResponse;
+import com.dailysync.entity.Attachment;
 import com.dailysync.entity.AuditLog;
 import com.dailysync.entity.DailyRecord;
 import com.dailysync.entity.RefreshToken;
 import com.dailysync.entity.User;
 import com.dailysync.entity.Vault;
+import com.dailysync.mapper.AttachmentMapper;
 import com.dailysync.mapper.AuditLogMapper;
 import com.dailysync.mapper.DailyRecordMapper;
 import com.dailysync.mapper.RefreshTokenMapper;
@@ -19,6 +21,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -45,10 +49,12 @@ public class AdminService {
     private final UserMapper userMapper;
     private final VaultMapper vaultMapper;
     private final DailyRecordMapper recordMapper;
+    private final AttachmentMapper attachmentMapper;
     private final RefreshTokenMapper refreshTokenMapper;
     private final AuditLogMapper auditLogMapper;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
+    private final AttachmentStore attachmentStore;
 
     /** 用户列表（含仓库数与记录数） */
     public List<AdminUserResponse> listUsers() {
@@ -82,7 +88,7 @@ public class AdminService {
                 "目标用户: " + target.getUsername(), ip);
     }
 
-    /** 删除用户，连同其仓库、记录、登录态与审计日志一并清理。 */
+    /** 删除用户，连同其仓库、记录、附件、登录态与审计日志一并清理。 */
     @Transactional
     public void deleteUser(Long operatorId, Long targetId, String ip) {
         User target = requireTargetNotSelf(operatorId, targetId);
@@ -94,6 +100,8 @@ public class AdminService {
         if (!vaultIds.isEmpty()) {
             recordMapper.delete(Wrappers.<DailyRecord>lambdaQuery()
                     .in(DailyRecord::getVaultId, vaultIds));
+            attachmentMapper.delete(Wrappers.<Attachment>lambdaQuery()
+                    .in(Attachment::getVaultId, vaultIds));
             vaultMapper.delete(Wrappers.<Vault>lambdaQuery().eq(Vault::getUserId, targetId));
         }
         refreshTokenMapper.delete(Wrappers.<RefreshToken>lambdaQuery()
@@ -102,8 +110,32 @@ public class AdminService {
                 .eq(AuditLog::getUserId, targetId));
         userMapper.deleteById(targetId);
 
+        removeAttachmentDirsAfterCommit(vaultIds);
         auditService.record(operatorId, null, AuditService.Action.USER_DELETE,
                 "目标用户: " + target.getUsername() + "（id " + targetId + "）", ip);
+    }
+
+    /**
+     * 删掉这些仓库在磁盘上的附件目录。
+     *
+     * <p>放在事务提交后执行：删行成功但事务回滚的话，行还在而文件已经没了，
+     * 附件就成了点不开的死链。附件按仓库分目录存放，所以这里逐个删仓库目录
+     * 既不会误伤其他用户，也不需要任何引用计数。
+     */
+    private void removeAttachmentDirsAfterCommit(List<Long> vaultIds) {
+        if (vaultIds.isEmpty()) {
+            return;
+        }
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            vaultIds.forEach(attachmentStore::deleteVaultDir);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                vaultIds.forEach(attachmentStore::deleteVaultDir);
+            }
+        });
     }
 
     /** 全量审计日志（新→旧），把 userId 翻成用户名便于阅读 */

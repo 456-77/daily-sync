@@ -17,6 +17,10 @@ frontend/dist/
 # 服务器凭证记录（含真实密码，永不入库）
 credentials.md
 
+# 附件落盘目录（本地跑后端时生成在 backend/ 下；运行时数据不入库）
+backend/data/
+data/
+
 # Obsidian 插件（自带独立 git 仓库，避免嵌套仓库误提交）
 quick-daily-note/
 

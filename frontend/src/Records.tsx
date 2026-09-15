@@ -592,7 +592,12 @@ export default function Records({ vaultId }: { vaultId: number }) {
                   {weeklyRecord.path} · 更新于 {new Date(weeklyRecord.updatedAt).toLocaleString()}
                 </div>
                 <div className="record-content">
-                  <MarkdownView content={weeklyRecord.content} onHeadings={setHeadings} />
+                  <MarkdownView
+                    content={weeklyRecord.content}
+                    vaultId={vaultId}
+                    recordPath={weeklyRecord.path}
+                    onHeadings={setHeadings}
+                  />
                 </div>
               </div>
             ) : weeklyPaths[selectedWeek] ? (
@@ -620,7 +625,12 @@ export default function Records({ vaultId }: { vaultId: number }) {
                       {selectedRecord.path} · 更新于 {new Date(selectedRecord.updatedAt).toLocaleString()}
                     </div>
                     <div className="record-content">
-                      <MarkdownView content={selectedRecord.content} onHeadings={setHeadings} />
+                      <MarkdownView
+                        content={selectedRecord.content}
+                        vaultId={vaultId}
+                        recordPath={selectedRecord.path}
+                        onHeadings={setHeadings}
+                      />
                     </div>
                   </div>
                 )}

@@ -6,8 +6,10 @@ import com.dailysync.common.HashUtil;
 import com.dailysync.dto.SyncPullResponse;
 import com.dailysync.dto.SyncPushRequest;
 import com.dailysync.dto.SyncPushResponse;
+import com.dailysync.entity.Attachment;
 import com.dailysync.entity.DailyRecord;
 import com.dailysync.entity.Vault;
+import com.dailysync.mapper.AttachmentMapper;
 import com.dailysync.mapper.DailyRecordMapper;
 import com.dailysync.mapper.VaultMapper;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,7 @@ public class SyncService {
 
     private final VaultMapper vaultMapper;
     private final DailyRecordMapper recordMapper;
+    private final AttachmentMapper attachmentMapper;
 
     /**
      * 批量推送。流程：整批校验 → 逐条判变更 → 有变更才原子递增仓库版本并对变更行落库。
@@ -139,23 +142,55 @@ public class SyncService {
     }
 
     /**
-     * 增量拉取（version &gt; since，按 version、id 升序）。
-     * 不加事务：vault 与记录是两次自动提交读，极端交错下客户端可能重复收到但不会漏收
+     * 增量拉取：正文与附件共用 {@code version > since} 这一条游标，按 version 升序归并后下发。
+     *
+     * <p>两张表各取 {@code limit + 1} 条再归并截断到 limit，{@code hasMore} 以归并后的
+     * 总数判断。归并无歧义的关键性质：正文一批推送占一个版本、附件一次上传占一个版本，
+     * 而版本号是「自增后回读」（InnoDB 行锁保证并发自增互不相同），
+     * 所以**同一个版本号下只会出现同一类行**，不会跨表撞车。
+     * 归并按 version 升序取，页尾必然是本页最大版本号，客户端沿用既有的
+     * {@code since = 页尾 version - 1} 翻页规则即可（重复收到同版本行，按 path 去重）。
+     *
+     * <p>不加事务：vault 与两张表是三次自动提交读，极端交错下客户端可能重复收到但不会漏收
      * （hasMore=false 时游标取 max(vaultVersion, 本页最大 version) 即安全）。
      */
     public SyncPullResponse pull(Long vaultId, long since, int limit) {
         Vault vault = vaultMapper.selectById(vaultId);
+        // 多取一条：靠它判断"还有没有下一页"，不必依赖条数恰好等于 limit
         List<DailyRecord> rows = recordMapper.selectList(Wrappers.<DailyRecord>lambdaQuery()
                 .eq(DailyRecord::getVaultId, vaultId)
                 .gt(DailyRecord::getVersion, since)
                 .orderByAsc(DailyRecord::getVersion)
                 .orderByAsc(DailyRecord::getId)
-                .last("LIMIT " + limit));
-        List<SyncPullResponse.Record> records = rows.stream()
-                .map(r -> new SyncPullResponse.Record(r.getPath(), r.getContent(),
-                        r.getDeleted() == 1, r.getVersion(), r.getUpdatedAt()))
-                .toList();
-        return new SyncPullResponse(vault.getVersion(), records.size() == limit, records);
+                .last("LIMIT " + (limit + 1)));
+        List<Attachment> attachments = attachmentMapper.selectList(Wrappers.<Attachment>lambdaQuery()
+                .eq(Attachment::getVaultId, vaultId)
+                .gt(Attachment::getVersion, since)
+                .orderByAsc(Attachment::getVersion)
+                .orderByAsc(Attachment::getId)
+                .last("LIMIT " + (limit + 1)));
+
+        List<SyncPullResponse.Record> outRecords = new ArrayList<>();
+        List<SyncPullResponse.AttachmentMeta> outAttachments = new ArrayList<>();
+        int i = 0;
+        int j = 0;
+        while (outRecords.size() + outAttachments.size() < limit
+                && (i < rows.size() || j < attachments.size())) {
+            // 同版本跨表不可能发生，用 <= 取正文保证确定性（真撞上也不会两条都丢）
+            boolean takeRecord = j >= attachments.size()
+                    || (i < rows.size() && rows.get(i).getVersion() <= attachments.get(j).getVersion());
+            if (takeRecord) {
+                DailyRecord r = rows.get(i++);
+                outRecords.add(new SyncPullResponse.Record(r.getPath(), r.getContent(),
+                        r.getDeleted() == 1, r.getVersion(), r.getUpdatedAt()));
+            } else {
+                Attachment a = attachments.get(j++);
+                outAttachments.add(new SyncPullResponse.AttachmentMeta(a.getPath(), a.getName(),
+                        a.getSha256(), a.getSize(), a.getDeleted() == 1, a.getVersion()));
+            }
+        }
+        boolean hasMore = rows.size() + attachments.size() > limit;
+        return new SyncPullResponse(vault.getVersion(), hasMore, outRecords, outAttachments);
     }
 
     /** 允许同步的扩展名：库内正文是 .md，插件另外推送的待办数据文件是 .json */

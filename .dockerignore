@@ -5,6 +5,10 @@
 **/dist
 **/target
 backend/*.log
+# 附件落盘目录：本地跑过后端就可能攒下几百 MB。Dockerfile 只 COPY backend/pom.xml
+# 与 backend/src，本来就不会把它烤进镜像，排除只为每次 build 不必先把它传给 daemon
+backend/data/
+data/
 quick-daily-note
 M*.md
 .env

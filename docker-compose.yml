@@ -18,6 +18,13 @@ services:
       INVITE_CODE: ${INVITE_CODE:-}
       # 尚未上反向代理时保持 false；将来套 nginx 后改 true（客户端 IP 取 X-Forwarded-For）
       BEHIND_PROXY: ${BEHIND_PROXY:-false}
+    volumes:
+      # 附件 blob 的落盘目录（M7）。不挂这一条的话，附件会写进容器的可写层，
+      # 而下一次 docker compose up -d 是重建容器——图片会静默消失（正文在 MySQL 里不受影响）。
+      # 这是宿主机目录的 bind mount（不是拷贝）：容器里 /app/data 与宿主 /opt/daily-sync/data
+      # 是同一份数据，磁盘上只有一份。附件按 <vaultId>/<sha256 前两位>/<sha256> 分层，
+      # 所以 du -sh /opt/daily-sync/data/attachments/<vaultId> 就是该仓库的实际占用。
+      - /opt/daily-sync/data:/app/data
     extra_hosts:
       # Linux 上把 host.docker.internal 指到宿主机，容器才能访问宿主端口
       - "host.docker.internal:host-gateway"

@@ -27,13 +27,26 @@ daily-sync:
   jwt-access-ttl-minutes: 120
   # 注册邀请码：留空 = 开放注册；配置后注册必须携带
   invite-code: ${INVITE_CODE:}
-  # 限流（M5）：/api/v1/auth/** 与 /api/v1/sync 均按客户端 IP。
+  # 限流（M5）：/api/v1/auth/** 、/api/v1/sync 与附件上传下载均按客户端 IP。
   # 登录 10/分钟防密码爆破（插件登录也走此桶，多设备同 IP 足够）；
-  # 同步 120/分钟——M5.1 起走 JWT，无效令牌在 HMAC 校验层即被拒；本机联调可整体关闭
+  # 同步 120/分钟——M5.1 起走 JWT，无效令牌在 HMAC 校验层即被拒；
+  # 附件 600/分钟——一项一个请求，新设备首同步几十张图会瞬间打满同步桶，
+  # 从而把随后的正文推送挤成 429，所以单独分桶；本机联调可整体关闭
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     auth-per-minute: 10
     sync-per-minute: 120
+    attachment-per-minute: 600
+  # 附件（M7）：字节落磁盘，数据库只存元数据，两边靠 sha256 关联
+  # 存储根目录按 <vaultId>/<sha256 前两位>/<sha256> 分层。相对路径按工作目录解析：
+  #   本地 IDEA 运行 → backend/data/attachments
+  #   容器运行（WORKDIR /app）→ /app/data/attachments，对应宿主机 /opt/daily-sync/data（见 docker-compose.yml）
+  # 刻意不放在 src/main/resources 下：那会把附件烤进 jar，且每次构建都打包一遍
+  storage:
+    dir: ${ATTACHMENT_DIR:./data/attachments}
+  attachments:
+    max-file-bytes: 10485760     # 单文件 10MB：手机截图/照片/导出 PDF 都够
+    quota-bytes: 1073741824      # 每仓库配额 1GB（软上限，超限 413 并提示）
   # 是否部署在反向代理之后（M6 上云后置 true）：开启后客户端 IP 取 X-Forwarded-For 首段。
   # 直连公网时保持 false——该头可被伪造，盲信会绕过按 IP 的限流
   behind-proxy: ${BEHIND_PROXY:false}

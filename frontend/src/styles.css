@@ -1345,6 +1345,83 @@ button.danger:hover:not(:disabled) {
   border-radius: 6px;
 }
 
+/* ---------- 附件（粘贴图片 / pdf） ---------- */
+
+.attachment-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 12px 0;
+}
+
+/* 加载中 / 加载失败：撑起块级占位，免得图到位时正文跳一下 */
+.attachment-loading,
+.attachment-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+  padding: 6px 10px;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.attachment-error {
+  border-color: var(--danger);
+}
+
+.attachment-error-text {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.attachment-retry {
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+
+/* 非图片附件（pdf）与普通 wiki 链接：一行可点下载的胶囊 */
+.attachment-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--primary);
+  font: inherit;
+  font-size: 14px;
+  padding: 2px 12px;
+  cursor: pointer;
+}
+
+.attachment-chip:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--bg);
+}
+
+.attachment-chip:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
 .md-body li + li {
   margin-top: 2px;
 }

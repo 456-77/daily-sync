@@ -1,17 +1,28 @@
-# 自动部署：push 到 master 即构建镜像 → scp 到阿里云服务器 → docker load + compose 重启。
-# Jenkins 方案后续再评估；个人规模 Actions 一条流水线足够。
+# 自动部署：push 到 master 即构建镜像 → 发布到 GitHub Release → 服务器从 Release CDN
+# 拉取 → docker load + compose 重启。
+#
+# ## 为什么不走 Actions 直连 scp（2026-09-27）
+#
+# 原方案是 runner scp 镜像到阿里云，连续三次部署全部卡死在传输步骤（30+ 分钟不动）：
+# GitHub 海外 runner 到国内服务器的跨境直连极不稳定，且 scp 无法断点续传。
+# 改为 Release 中转后，拉取方向变成 **服务器 → GitHub CDN（fastly）**，阿里云出向
+# 拉国际 CDN 通常稳定得多，且 wget 可重试。
 #
 # 依赖仓库 Secrets（Settings → Secrets and variables → Actions）：
 #   SSH_HOST  服务器地址（120.26.58.22）
 #   SSH_USER  SSH 用户（root）
 #   SSH_KEY   部署私钥（ed25519，对应服务器 authorized_keys 里的 daily-sync-deploy 公钥）
-# 服务器侧约定：/opt/daily-sync/ 下放 docker-compose.yml 与 .env（首次人工布置）
+# 服务器侧约定：/opt/daily-sync/ 下放 .env（敏感配置）；docker-compose.yml 随部署同步
 name: Build & Deploy
 
 on:
   push:
     branches: [master]
   workflow_dispatch: {}
+
+# 发布 Release（滚动 tag）需要写权限
+permissions:
+  contents: write
 
 concurrency:
   group: deploy
@@ -30,6 +41,18 @@ jobs:
       - name: Export image tarball
         run: docker save daily-sync:latest | gzip > /tmp/daily-sync.tar.gz
 
+      - name: Publish artifacts to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 滚动 tag：删旧 Release/资产再传新的，地址恒为 .../download/deploy-latest/<文件名>
+          gh release delete deploy-latest --yes --cleanup-tag || true
+          sleep 3
+          gh release create deploy-latest \
+            --title "部署产物（自动滚动覆盖）" \
+            --notes "由 Build & Deploy 流水线自动发布，勿手动使用" \
+            /tmp/daily-sync.tar.gz docker-compose.yml
+
       - name: Prepare SSH key
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
@@ -38,27 +61,7 @@ jobs:
           install -m 600 /dev/null ~/.ssh/deploy_key
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
 
-      - name: Upload image to server
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-        run: |
-          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            /tmp/daily-sync.tar.gz "$SSH_USER@$SSH_HOST:/opt/daily-sync/daily-sync.tar.gz"
-
-      - name: Upload compose file
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-        run: |
-          # 服务器上的 compose 最初是人工放的，这里随部署一起同步，
-          # 否则仓库里改了编排（如 healthcheck）线上永远不会生效。覆盖前留一份 .bak
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            "$SSH_USER@$SSH_HOST" 'cp -f /opt/daily-sync/docker-compose.yml /opt/daily-sync/docker-compose.yml.bak'
-          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            docker-compose.yml "$SSH_USER@$SSH_HOST:/opt/daily-sync/docker-compose.yml"
-
-      - name: Load image and restart service
+      - name: Pull and restart service
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
@@ -67,6 +70,15 @@ jobs:
             "$SSH_USER@$SSH_HOST" '
             set -e
             cd /opt/daily-sync
+            # compose 随部署同步（覆盖前留 .bak）
+            cp -f docker-compose.yml docker-compose.yml.bak 2>/dev/null || true
+            wget -q -O docker-compose.yml.new \
+              "https://github.com/456-77/daily-sync/releases/download/deploy-latest/docker-compose.yml"
+            mv -f docker-compose.yml.new docker-compose.yml
+            # 镜像走 Release CDN：wget 带超时重试，wget 校验内容长度，残包会非零退出
+            wget -q -O daily-sync.tar.gz.new --timeout=60 --tries=3 \
+              "https://github.com/456-77/daily-sync/releases/download/deploy-latest/daily-sync.tar.gz"
+            mv -f daily-sync.tar.gz.new daily-sync.tar.gz
             gunzip -c daily-sync.tar.gz | docker load
             docker compose up -d
             docker image prune -f

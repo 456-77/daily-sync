@@ -109,6 +109,9 @@ export default function Records({ vaultId }: { vaultId: number }) {
   /** 周标识 -> 周记路径，用于周记列打标记；正文等点开再取 */
   const [weeklyPaths, setWeeklyPaths] = useState<Record<string, string>>({});
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
+  /** 从文件列表点开的普通笔记（不在日历体系里，按 path 拉全文） */
+  const [noteFile, setNoteFile] = useState<DailyRecord | null>(null);
+  const [noteLoading, setNoteLoading] = useState(false);
   const [weeklyRecord, setWeeklyRecord] = useState<DailyRecord | null>(null);
   const [error, setError] = useState("");
   /** 年月快速跳转面板 */
@@ -287,18 +290,26 @@ export default function Records({ vaultId }: { vaultId: number }) {
     const list = index.filter((e) => e.recordDate !== null && e.path.endsWith(".md"));
     return keyword ? list.filter((e) => fileName(e.path).toLowerCase().includes(keyword)) : list;
   }, [index, keyword, fileName]);
+  // 周记只收真周记命名（YYYY-Www）；其余无日期的 .md 是普通笔记，单独分组、
+  // 点击经 /records/file 拉全文查看（0.13 之前全被塞进周记组且点不开）
   const weeklyFiles = useMemo(() => {
-    const list = index.filter((e) => e.recordDate === null && e.path.endsWith(".md"));
+    const list = index.filter((e) => e.recordDate === null && e.path.endsWith(".md") && weekOfPath(e.path) !== null);
+    return keyword ? list.filter((e) => fileName(e.path).toLowerCase().includes(keyword)) : list;
+  }, [index, keyword, fileName]);
+  const noteFiles = useMemo(() => {
+    const list = index.filter((e) => e.recordDate === null && e.path.endsWith(".md") && weekOfPath(e.path) === null);
     return keyword ? list.filter((e) => fileName(e.path).toLowerCase().includes(keyword)) : list;
   }, [index, keyword, fileName]);
 
   /** 日期与周互斥：当前只看其中一种 */
   const pickDate = (date: string) => {
+    setNoteFile(null);
     setSelectedDate(date);
     setSelectedWeek(null);
   };
 
   const pickWeek = (week: string) => {
+    setNoteFile(null);
     setSelectedWeek((cur) => (cur === week ? null : week));
     setSelectedDate(null);
   };
@@ -330,6 +341,7 @@ export default function Records({ vaultId }: { vaultId: number }) {
 
   /** 从文件列表打开某篇日记：日历翻到那一天，并选中这一篇 */
   const openFile = (entry: RecordIndexEntry) => {
+    setNoteFile(null);
     const date = entry.recordDate;
     if (!date) return;
     setYm(monthOf(date));
@@ -347,8 +359,31 @@ export default function Records({ vaultId }: { vaultId: number }) {
     setSelectedDate(date);
   };
 
+  /** 从文件列表打开一篇普通笔记：按 path 拉全文，独立于日历体系 */
+  const openNoteFile = async (entry: RecordIndexEntry) => {
+    setSelectedWeek(null);
+    setSelectedDate(null);
+    setSelectedRecord(null);
+    setWeeklyRecord(null);
+    setNoteLoading(true);
+    setError("");
+    try {
+      const record = await api.get<DailyRecord>(
+        `/api/v1/vaults/${vaultId}/records/file?path=${encodeURIComponent(entry.path)}`,
+      );
+      setNoteFile(record);
+    } catch (err) {
+      setNoteFile(null);
+      setError(err instanceof Error ? err.message : "加载笔记失败");
+    } finally {
+      setNoteLoading(false);
+    }
+  };
+
   /** 从文件列表打开某篇周记：翻到该周所在的月份并按周查看 */
+
   const openWeekFile = (entry: RecordIndexEntry) => {
+    setNoteFile(null);
     const week = weekOfPath(entry.path);
     if (!week) return;
     const monday = isoWeekMonday(week);
@@ -559,6 +594,24 @@ export default function Records({ vaultId }: { vaultId: number }) {
                   ))}
                   {diaryFiles.length === 0 && <div className="file-list-empty">没有匹配的日记</div>}
 
+                  {noteFiles.length > 0 && (
+                    <>
+                      <div className="file-list-section">
+                        笔记 <span>{noteFiles.length}</span>
+                      </div>
+                      {noteFiles.map((entry) => (
+                        <button
+                          key={entry.id}
+                          className={noteFile?.path === entry.path ? 'file-item active' : 'file-item'}
+                          onClick={() => void openNoteFile(entry)}
+                          title={entry.path}
+                        >
+                          <span className="file-item-name">{fileName(entry.path)}</span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+
                   <div className="file-list-section">
                     周记 <span>{weeklyFiles.length}</span>
                   </div>
@@ -585,7 +638,23 @@ export default function Records({ vaultId }: { vaultId: number }) {
           {headings.length >= 2 && <TocPanel headings={headings} />}
         </div>
         <div className="records-main">
-          {selectedWeek ? (
+          {noteLoading ? (
+            <div className="empty">加载中…</div>
+          ) : noteFile ? (
+            <div className="record-view" key={noteFile.id}>
+              <div className="record-meta">
+                {noteFile.path} · 更新于 {new Date(noteFile.updatedAt).toLocaleString()}
+              </div>
+              <div className="record-content">
+                <MarkdownView
+                  content={noteFile.content}
+                  vaultId={vaultId}
+                  recordPath={noteFile.path}
+                  onHeadings={setHeadings}
+                />
+              </div>
+            </div>
+          ) : selectedWeek ? (
             weeklyRecord ? (
               <div className="record-view" key={weeklyRecord.id}>
                 <div className="record-meta">

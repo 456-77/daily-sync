@@ -79,7 +79,14 @@ jobs:
             mv -f docker-compose.yml.new docker-compose.yml
             rm -f .pull-done daily-sync.tar.gz.new
             nohup sh -c '\''
+              # 优先走本机 mihomo 代理（7890）加速拉取；代理不可用自动回退直连。
+              # 每轮循环前重新探测代理——代理半路挂掉时，剩余轮次自然落到直连续传。
               for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+                if curl -fsS -x http://127.0.0.1:7890 -o /dev/null --max-time 6 https://www.gstatic.com/generate_204 2>/dev/null; then
+                  https_proxy=http://127.0.0.1:7890 wget -c -q --timeout=60 \
+                    "https://github.com/456-77/daily-sync/releases/download/deploy-latest/daily-sync.tar.gz" \
+                    -O daily-sync.tar.gz.new && break
+                fi
                 wget -c -q --timeout=60 \
                   "https://github.com/456-77/daily-sync/releases/download/deploy-latest/daily-sync.tar.gz" \
                   -O daily-sync.tar.gz.new && break

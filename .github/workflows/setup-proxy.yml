@@ -1,0 +1,106 @@
+# 服务器代理初始化（手动触发）：在阿里云服务器上安装 mihomo（Clash Meta 内核），
+# 用于加速后续「服务器 ← GitHub Release」的镜像拉取。
+#
+# 前置：
+#   Secret CLASH_SUBSCRIBE_URL = Clash 订阅链接（机场订阅，国内一般可直连拉取）。
+#   未配置时本流程会装好 mihomo 但不生成可用配置（服务起不来），
+#   部署流水线的直连兜底不受影响；配置好 Secret 后重跑本流程即可。
+#
+# 兜底约定：代理只是加速通道。部署流水线在代理不可用时自动回退直连 wget -c 断点续传，
+# 代理挂掉永远不会挡住部署。
+name: Setup server proxy
+
+on:
+  workflow_dispatch:
+    inputs:
+      subscribe_url:
+        description: "Clash 订阅链接（留空则使用 Secret CLASH_SUBSCRIBE_URL）"
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-proxy
+  cancel-in-progress: false
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch mihomo binary
+        run: |
+          VER=$(curl -fsSL https://api.github.com/repos/MetaCubeX/mihomo/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
+          echo "mihomo version: $VER"
+          curl -fsSL "https://github.com/MetaCubeX/mihomo/releases/download/${VER}/mihomo-linux-amd64-${VER}.gz" \
+            -o /tmp/mihomo-linux-amd64.gz
+          ls -la /tmp/mihomo-linux-amd64.gz
+
+      - name: Publish to deploy release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # deploy-latest 已由部署流水线维护；这里补挂 mihomo 资产（服务器从同一条 CDN 拉）
+          gh release upload deploy-latest /tmp/mihomo-linux-amd64.gz --clobber || {
+            gh release create deploy-latest --title "部署产物（自动滚动覆盖）" --notes "auto" /tmp/mihomo-linux-amd64.gz
+          }
+
+      - name: Prepare SSH key
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          install -m 600 /dev/null ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+
+      - name: Install mihomo on server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SUBSCRIBE_URL: ${{ github.event.inputs.subscribe_url || secrets.CLASH_SUBSCRIBE_URL }}
+        run: |
+          # 二进制小（约 15MB），SSH 挂 wget 一般扛得住；断了重跑本流程即可
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "$SSH_USER@$SSH_HOST" '
+            set -e
+            cd /opt/daily-sync
+            wget -c -q --timeout=60 --tries=5 \
+              "https://github.com/456-77/daily-sync/releases/download/deploy-latest/mihomo-linux-amd64.gz"
+            gunzip -c mihomo-linux-amd64.gz > /usr/local/bin/mihomo
+            chmod +x /usr/local/bin/mihomo
+            /usr/local/bin/mihomo -v | head -1
+            '
+          # 订阅配置 + systemd（订阅串含敏感 token，不回显）
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "$SSH_USER@$SSH_HOST" "SUB='$SUBSCRIBE_URL' bash -s" <<'SCRIPT'
+set -e
+mkdir -p /opt/mihomo
+if [ -n "$SUB" ]; then
+  wget -q -O /opt/mihomo/config.yaml "$SUB"
+  echo "订阅配置已下载：$(wc -c < /opt/mihomo/config.yaml) 字节"
+else
+  echo "未配置 CLASH_SUBSCRIBE_URL：跳过订阅（服务暂不可用，部署直连兜底不受影响）"
+fi
+cat > /etc/systemd/system/mihomo.service <<'UNIT'
+[Unit]
+Description=mihomo (Clash Meta) proxy for deploy pulls
+After=network-online.target
+[Service]
+ExecStart=/usr/local/bin/mihomo -d /opt/mihomo
+Restart=on-failure
+RestartSec=5
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable mihomo
+# 只有拿到订阅才启动；否则留 disabled 状态待配置后 systemctl start
+if [ -s /opt/mihomo/config.yaml ]; then
+  systemctl restart mihomo
+  sleep 3
+  systemctl is-active mihomo
+  curl -fsS -x http://127.0.0.1:7890 -o /dev/null --max-time 12 https://www.gstatic.com/generate_204 \
+    && echo "PROXY_OK: 7890 已可用" || echo "PROXY_WARN: 服务已起但测试请求未通（检查订阅节点）"
+fi
+SCRIPT

@@ -89,9 +89,10 @@ jobs:
             '\'' >/dev/null 2>&1 &
             echo "镜像后台拉取已启动"
             '
-          # 轮询拉取完成标记（20s × 30 次 = 10 分钟上限；-c 续传，断的是某一段不是全局）
+          # 轮询拉取完成标记（20s × 75 次 = 25 分钟上限；-c 续传，断的是某一段不是全局）。
+          # 阿里云拉 GitHub CDN 实测约 150KB/s，百兆镜像需要十几分钟——上限放宽到 25 分钟。
           ok=""
-          for attempt in $(seq 1 30); do
+          for attempt in $(seq 1 75); do
             sleep 20
             if ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
               "$SSH_USER@$SSH_HOST" 'test -f /opt/daily-sync/.pull-done' 2>/dev/null; then
@@ -100,7 +101,7 @@ jobs:
             fi
           done
           if [ "$ok" != "yes" ]; then
-            echo "镜像拉取超时（10 分钟）"
+            echo "镜像拉取超时（25 分钟）"
             exit 1
           fi
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \

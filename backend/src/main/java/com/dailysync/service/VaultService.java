@@ -3,7 +3,11 @@ package com.dailysync.service;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.dailysync.common.BizException;
 import com.dailysync.dto.VaultResponse;
+import com.dailysync.entity.Attachment;
+import com.dailysync.entity.DailyRecord;
 import com.dailysync.entity.Vault;
+import com.dailysync.mapper.AttachmentMapper;
+import com.dailysync.mapper.DailyRecordMapper;
 import com.dailysync.mapper.VaultMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +30,9 @@ import java.util.List;
 public class VaultService {
 
     private final VaultMapper vaultMapper;
+    private final DailyRecordMapper dailyRecordMapper;
+    private final AttachmentMapper attachmentMapper;
+    private final AttachmentStore attachmentStore;
     private final AuditService auditService;
 
     /** 列出当前用户的所有仓库（按 id 升序），含各自最新 version。 */
@@ -83,6 +90,33 @@ public class VaultService {
             throw new BizException(HttpStatus.NOT_FOUND, "仓库不存在");
         }
         return vault;
+    }
+
+    /**
+     * 删除仓库（Web 端「仓库」页入口）：清掉该仓库的正文、附件元数据与 blob 文件，
+     * 再删仓库行，最后审计。只允许仓库属主操作（ownedVault 统一 404）。
+     *
+     * <p>顺序刻意为「先行后文件」：文件删除放在事务最后、行删除之后——万一文件清理
+     * 中途失败，留下的只是孤儿 blob（没有行指向它，无碍正确性，可手动清理）；
+     * 反过来先删文件后删行，一旦回滚就会出现行在而 blob 没了的破图。
+     *
+     * <p>正在同步的设备随后一次推送会因仓库消失而收到服务端错误，重新建仓即恢复
+     * （findOrCreateVault 的既有语义），不在此处做特殊保护。
+     *
+     * @return 被删的仓库名（响应与审计用）
+     */
+    @Transactional
+    public String deleteVault(Long userId, Long vaultId) {
+        Vault vault = ownedVault(userId, vaultId);
+        attachmentMapper.delete(Wrappers.<Attachment>lambdaQuery()
+                .eq(Attachment::getVaultId, vaultId));
+        dailyRecordMapper.delete(Wrappers.<DailyRecord>lambdaQuery()
+                .eq(DailyRecord::getVaultId, vaultId));
+        vaultMapper.deleteById(vaultId);
+        attachmentStore.deleteVaultDir(vaultId);
+        auditService.record(userId, vaultId, AuditService.Action.VAULT_DELETE,
+                "删除仓库: " + vault.getName() + "（含全部正文与附件）", null);
+        return vault.getName();
     }
 
     /**

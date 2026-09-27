@@ -39,6 +39,7 @@ public class AuditService {
         LOGIN_SUCCESS("登录成功"),
         LOGIN_FAIL("登录失败"),
         VAULT_CREATE("创建仓库"),
+        VAULT_DELETE("删除仓库"),
         PROFILE_UPDATE("更新资料"),
         PASSWORD_CHANGE("修改密码"),
         USER_STATUS_CHANGE("变更用户状态"),

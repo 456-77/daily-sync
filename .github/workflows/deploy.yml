@@ -66,19 +66,48 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
+          # 跨境链路对「SSH 挂着长传输」极不稳定（scp 与 ssh 内挂 wget 都被掐断过）。
+          # 因此 SSH 只发短命令：镜像用 nohup 后台 wget -c 断点续传（成功写标记文件），
+          # 这里用一条条新 SSH 轮询标记，传输断了也只是某次续传慢，不毁整个部署。
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
             "$SSH_USER@$SSH_HOST" '
             set -e
             cd /opt/daily-sync
-            # compose 随部署同步（覆盖前留 .bak）
-            cp -f docker-compose.yml docker-compose.yml.bak 2>/dev/null || true
+            # compose 只有几 KB，同步拉（短连接内完成）
             wget -q -O docker-compose.yml.new \
               "https://github.com/456-77/daily-sync/releases/download/deploy-latest/docker-compose.yml"
             mv -f docker-compose.yml.new docker-compose.yml
-            # 镜像走 Release CDN：wget 带超时重试，wget 校验内容长度，残包会非零退出
-            wget -q -O daily-sync.tar.gz.new --timeout=60 --tries=3 \
-              "https://github.com/456-77/daily-sync/releases/download/deploy-latest/daily-sync.tar.gz"
-            mv -f daily-sync.tar.gz.new daily-sync.tar.gz
+            rm -f .pull-done daily-sync.tar.gz.new
+            nohup sh -c '\''
+              for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+                wget -c -q --timeout=60 \
+                  "https://github.com/456-77/daily-sync/releases/download/deploy-latest/daily-sync.tar.gz" \
+                  -O daily-sync.tar.gz.new && break
+                sleep 5
+              done
+              mv -f daily-sync.tar.gz.new daily-sync.tar.gz && touch .pull-done
+            '\'' >/dev/null 2>&1 &
+            echo "镜像后台拉取已启动"
+            '
+          # 轮询拉取完成标记（20s × 30 次 = 10 分钟上限；-c 续传，断的是某一段不是全局）
+          ok=""
+          for attempt in $(seq 1 30); do
+            sleep 20
+            if ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+              "$SSH_USER@$SSH_HOST" 'test -f /opt/daily-sync/.pull-done' 2>/dev/null; then
+              ok="yes"
+              break
+            fi
+          done
+          if [ "$ok" != "yes" ]; then
+            echo "镜像拉取超时（10 分钟）"
+            exit 1
+          fi
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "$SSH_USER@$SSH_HOST" '
+            set -e
+            cd /opt/daily-sync
+            rm -f .pull-done
             gunzip -c daily-sync.tar.gz | docker load
             docker compose up -d
             docker image prune -f

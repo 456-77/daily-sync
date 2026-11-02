@@ -28,9 +28,10 @@ public class SyncController {
     private final VaultService vaultService;
 
     /**
-     * 批量推送记录（幂等）。
+     * 批量推送记录（幂等）。这是<b>正文通道</b>：只收 .md / .json 文本；
+     * 其余一切文件走附件字节接口（{@code /api/v1/sync/attachments}，全类型放开）。
      *
-     * <p>限制：单批 ≤200 条；单条 content ≤1MB；path ≤255 且必须以 .md 结尾、
+     * <p>限制：单批 ≤200 条；单条 content ≤1MB；path ≤255 且必须以 .md / .json 结尾、
      * 为库内相对路径（不以 / 开头、无反斜杠、无 . / .. 段）；同一路径单批只能出现一次。
      * {@code deleted=true} 为墓碑删除（content 可省），重推同路径内容即复活。
      *

@@ -193,7 +193,11 @@ public class SyncService {
         return new SyncPullResponse(vault.getVersion(), hasMore, outRecords, outAttachments);
     }
 
-    /** 允许同步的扩展名：库内正文是 .md，插件另外推送的待办数据文件是 .json */
+    /**
+     * 正文通道允许的扩展名：库内笔记是 .md，待办快照等虚拟数据文件是 .json。
+     * 其余一切文件（图片、PDF、任意二进制）都走附件通道（{@link AttachmentService}），
+     * 那边全类型放开——字节落磁盘而不是塞进 content 列，也没有 1MB 正文上限的约束。
+     */
     private static final List<String> ALLOWED_EXTENSIONS = List.of(".md", ".json");
 
     /** 推送路径校验：相对路径、无反斜杠、无 . / .. / 空段、扩展名在白名单内。 */

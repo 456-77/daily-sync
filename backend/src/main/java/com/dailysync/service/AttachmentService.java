@@ -24,7 +24,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 附件：日记引用到的图片 / PDF。
+ * 附件：库内除正文（.md / .json）之外的<b>任意类型文件</b>——图片、PDF，也包括
+ * docx / mp3 / 无扩展名等一切二进制与文本。全类型同步（M8）后附件通道即通用文件通道。
  *
  * <p>字节落磁盘（{@link AttachmentStore} 按仓库分层的内容寻址），数据库只存元数据。
  * version 取自同一个 {@code vaults.version} 计数器，所以正文与附件共用一条拉取游标，
@@ -36,6 +37,11 @@ import java.util.Set;
  * <p>逐条上传/删除<b>不写审计日志</b>：与正文推送一致（push 也不逐条审计），
  * 否则每次粘贴几十张图就会把安全日志刷成流水账。仓库级事件（VAULT_CREATE）
  * 与用户级事件照常审计。
+ *
+ * <p>类型放开的代价由下载侧兜住：不在 {@link #INLINE_EXTENSIONS} 里的类型，
+ * 下载响应一律 {@code Content-Disposition: attachment}（见 {@link #isInline}）——
+ * svg / html 这类能内联脚本的文件不再被浏览器直出渲染，XSS 通道随之关闭；
+ * {@code <img>} 标签加载不受 disposition 影响，网页端贴图渲染照旧。
  */
 @Slf4j
 @Service
@@ -43,12 +49,13 @@ import java.util.Set;
 public class AttachmentService {
 
     /**
-     * 允许的附件类型白名单。
-     * 刻意不含 svg：svg 能内联脚本，浏览器直出等于给了一条 XSS 通道。
+     * 允许浏览器内联（直出渲染）的类型。只有确定无脚本执行风险的位图与 PDF。
+     * 其余类型（svg、html、js……一切）都<b>允许上传</b>，但下载时强制走 attachment
+     * 下载而非内联——放开同步不等于放开渲染。
      */
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("png", "jpg", "jpeg", "gif", "webp", "pdf");
+    private static final Set<String> INLINE_EXTENSIONS = Set.of("png", "jpg", "jpeg", "gif", "webp", "pdf");
 
-    /** 扩展名 -> Content-Type。服务端自己映射，不采信客户端传来的类型。 */
+    /** 扩展名 -> Content-Type。服务端自己映射，不采信客户端传来的类型；未知扩展名一律八位字节流。 */
     private static final Map<String, String> MIME_BY_EXT = Map.of(
             "png", "image/png",
             "jpg", "image/jpeg",
@@ -65,8 +72,8 @@ public class AttachmentService {
     private final VaultService vaultService;
     private final AttachmentStore blobStore;
 
-    /** 单文件上限（默认 10MB），超限 413 */
-    @Value("${daily-sync.attachments.max-file-bytes:10485760}")
+    /** 单文件上限（默认 50MB），超限 413 */
+    @Value("${daily-sync.attachments.max-file-bytes:52428800}")
     private long maxFileBytes;
 
     /** 每仓库附件配额（默认 1GB），超限 413 */
@@ -80,7 +87,7 @@ public class AttachmentService {
      * 一次流式读取就把两个限制都卡住，既不先把大文件写完再回滚，也不会因为粗粒度
      * 预检把「覆盖成更小的文件」误判成超配额。
      *
-     * @throws BizException 400 路径/类型不合法；413 超单文件上限或仓库配额
+     * @throws BizException 400 路径不合法；413 超单文件上限或仓库配额
      */
     @Transactional
     public AttachmentUploadResponse store(Long vaultId, String path, InputStream in) {
@@ -178,7 +185,7 @@ public class AttachmentService {
             throw new BizException(HttpStatus.NOT_FOUND, "附件文件缺失");
         }
         return new Blob(row.getPath(), row.getName(), row.getSha256(), row.getSize(),
-                mimeOf(row.getName()), blob);
+                mimeOf(row.getName()), isInline(row.getName()), blob);
     }
 
     /**
@@ -251,7 +258,11 @@ public class AttachmentService {
         attachmentMapper.updateById(existing);
     }
 
-    /** 校验并归一化库内相对路径。规则与 {@link SyncService} 的正文路径一致，只是扩展名白名单不同。 */
+    /**
+     * 校验并归一化库内相对路径。规则与 {@link SyncService} 的正文路径一致，
+     * 但<b>不限扩展名</b>——全类型同步后附件通道接受一切文件。文件名本身仍受限：
+     * basename 超 {@link #NAME_MAX} 会被数据库截断报错，不如在这里给出明确的 400。
+     */
     private String validatePath(String path) {
         String trimmed = path == null ? "" : path.trim();
         String problem = null;
@@ -274,8 +285,8 @@ public class AttachmentService {
                 }
             }
         }
-        if (problem == null && !ALLOWED_EXTENSIONS.contains(extensionOf(trimmed))) {
-            problem = "只同步 " + String.join(" / ", ALLOWED_EXTENSIONS.stream().sorted().toList());
+        if (problem == null && basenameOf(trimmed).length() > NAME_MAX) {
+            problem = "文件名超过 " + NAME_MAX + " 字符";
         }
         if (problem != null) {
             throw new BizException(HttpStatus.BAD_REQUEST, "path: " + path + " " + problem);
@@ -299,11 +310,21 @@ public class AttachmentService {
         return MIME_BY_EXT.getOrDefault(extensionOf(filename), "application/octet-stream");
     }
 
+    /**
+     * 该附件是否允许浏览器内联渲染（决定下载响应的 Content-Disposition）。
+     * 只有 {@link #INLINE_EXTENSIONS} 里的位图与 PDF 内联；svg / html 等可执行脚本的
+     * 类型强制走 attachment 下载，浏览器直出的 XSS 通道由此关闭。
+     */
+    public static boolean isInline(String filename) {
+        return INLINE_EXTENSIONS.contains(extensionOf(filename));
+    }
+
     private BizException quotaExceeded() {
         return new BizException(HttpStatus.PAYLOAD_TOO_LARGE,
                 "仓库附件配额已满（上限 " + (quotaBytes / 1024 / 1024) + "MB）");
     }
 
-    /** 待下载的 blob：元数据 + 磁盘位置，由 Controller 组装成响应。 */
-    public record Blob(String path, String name, String sha256, long size, String contentType, Path file) {}
+    /** 待下载的 blob：元数据 + 磁盘位置，由 Controller 组装成响应。inline 决定 Content-Disposition。 */
+    public record Blob(String path, String name, String sha256, long size, String contentType,
+                       boolean inline, Path file) {}
 }

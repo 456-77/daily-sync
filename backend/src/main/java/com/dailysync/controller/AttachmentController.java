@@ -60,11 +60,13 @@ public class AttachmentController {
     /**
      * 上传或覆盖一个附件。body 即文件字节。
      *
+     * <p>全类型同步（M8）：扩展名<b>不限</b>——附件通道即通用文件通道，
+     * 除正文（.md/.json 走推送接口）外的一切文件都从这里走。
+     *
      * <p>幂等：同一路径上传同一份内容返回 status=unchanged，且<b>不推进仓库版本号</b>，
      * 网络重试或重复推送不会惊动其他设备。
      *
-     * <p>错误：400 路径/类型不合法（只允许 png/jpg/jpeg/gif/webp/pdf）；
-     * 413 超过单文件上限（默认 10MB）或仓库配额（默认 1GB）。
+     * <p>错误：400 路径不合法；413 超过单文件上限（默认 50MB）或仓库配额（默认 1GB）。
      */
     @PostMapping("/api/v1/sync/attachments")
     public ApiResponse<AttachmentUploadResponse> upload(@RequestParam("vault") String vault,
@@ -127,12 +129,12 @@ public class AttachmentController {
     // 响应组装
     // ------------------------------------------------------------
 
-    /** 流式下发 blob：服务端定类型、禁止嗅探、以内容哈希作 ETag。 */
+    /** 流式下发 blob：服务端定类型、禁止嗅探、以内容哈希作 ETag；非内联类型强制下载。 */
     private static ResponseEntity<Resource> stream(AttachmentService.Blob blob) {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(blob.contentType()))
                 .contentLength(blob.size())
-                // 类型由服务端按扩展名白名单决定，这里再明确禁止浏览器自行嗅探
+                // 类型由服务端按扩展名决定，这里再明确禁止浏览器自行嗅探
                 .header("X-Content-Type-Options", "nosniff")
                 // 告诉调用方「这份字节在库里是哪个路径」。插件按文件名（name=）来取时，
                 // 只有服务端知道它解析到了哪个路径（同目录优先 → 最短路径 → 字典序），
@@ -142,7 +144,10 @@ public class AttachmentController {
                 // 换内容必然换 sha256，用 ETag 让浏览器反复验证而不是反复重下
                 .header(HttpHeaders.ETAG, "\"" + blob.sha256() + "\"")
                 .header(HttpHeaders.CACHE_CONTROL, "private, max-age=0, must-revalidate")
-                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition(blob.name()))
+                // 位图与 PDF 内联渲染；其余类型（svg/html 等可携带脚本的）一律 attachment
+                // 下载，不给浏览器直出执行的机会。<img> 标签加载不受 disposition 影响，
+                // 网页端贴图渲染照旧
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition(blob.name(), blob.inline()))
                 .body(new FileSystemResource(blob.file()));
     }
 
@@ -155,9 +160,12 @@ public class AttachmentController {
      * Content-Disposition 用 RFC 5987 的 {@code filename*=UTF-8''<pct-encoded>} 形式：
      * 文件名整体百分号编码，不拼原始引号也不放裸 name，文件名里若带引号/换行
      * 也不会破坏响应头。空格要编码成 %20 而不是 URLEncoder 默认的 +。
+     *
+     * @param inline false 时用 attachment（浏览器导航到该 URL 会下载而不是渲染），
+     *               这是全类型同步后拦住 svg/html 直出执行的那道闸
      */
-    private static String contentDisposition(String name) {
+    private static String contentDisposition(String name, boolean inline) {
         String encoded = URLEncoder.encode(name, StandardCharsets.UTF_8).replace("+", "%20");
-        return "inline; filename*=UTF-8''" + encoded;
+        return (inline ? "inline" : "attachment") + "; filename*=UTF-8''" + encoded;
     }
 }

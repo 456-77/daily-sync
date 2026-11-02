@@ -45,8 +45,9 @@ daily-sync:
   storage:
     dir: ${ATTACHMENT_DIR:./data/attachments}
   attachments:
-    max-file-bytes: 10485760     # 单文件 10MB：手机截图/照片/导出 PDF 都够
-    quota-bytes: 1073741824      # 每仓库配额 1GB（软上限，超限 413 并提示）
+    # 全类型同步（M8）：附件通道即通用文件通道，上限放宽到 50MB（大 PDF/录音/幻灯片）
+    max-file-bytes: 52428800     # 单文件 50MB；客户端 quick-note 侧常量须与此一致
+    quota-bytes: 1073741824      # 每仓库配额 1GB（软上限，超限 413 并提示；存大文件多可用 env 调）
   # 是否部署在反向代理之后（M6 上云后置 true）：开启后客户端 IP 取 X-Forwarded-For 首段。
   # 直连公网时保持 false——该头可被伪造，盲信会绕过按 IP 的限流
   behind-proxy: ${BEHIND_PROXY:false}

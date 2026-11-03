@@ -17,14 +17,12 @@ import { api } from "./api";
  * defaultUrlTransform（它会剥掉 ds-att:// 这类自定义协议，但放行相对 URL）。
  */
 
-/** 图片类扩展名：内联渲染（其余走可点下载的胶囊） */
-const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp"]);
 /**
- * 允许同步的附件扩展名，必须与后端 AttachmentService 的白名单一致。
- * 不在名单里的附件根本没上云；改写它只会得到一张必然加载失败的图，
- * 不如原样保留文本，至少看得到文件名。
+ * 图片类扩展名：内联渲染（其余走可点下载的胶囊）。
+ * svg 在内：`<img>` 加载 blob 走 SVG 静态安全模式（脚本不执行），
+ * 服务端对它的 Content-Disposition 已强制 attachment，直出导航那条路是堵死的。
  */
-const ATTACHMENT_EXTENSIONS = new Set([...IMAGE_EXTENSIONS, "pdf"]);
+const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
 
 const SENTINEL_PREFIX = "#ds-att:";
 /** 外部链接（http: / data: 等）不碰 */
@@ -216,7 +214,11 @@ function wikiReplacement(
 }
 
 /**
- * 解析一个引用目标。返回 null 表示"不该改写"（外部 URL、空目标、或不在同步白名单里的类型）。
+ * 解析一个引用目标。返回 null 表示"不该改写"（外部 URL、空目标）。
+ *
+ * M8 全类型同步后**不再按扩展名过滤**：云端可能有任意类型的文件，
+ * `[[报告.docx]]`、`![[录音.m4a]]` 都应渲染成下载胶囊、图片内联，
+ * 而不是原样留一段死文本。找不到文件时 blob 请求会 404，占位与重试交给组件。
  *
  * 带目录的写法按库内路径找；不带目录的（`![[截图.png]]`）交给服务端按文件名在全库解析——
  * Obsidian 的解析规则（同目录优先 / 最短路径）放在服务端一处实现，网页端与插件共用，
@@ -227,7 +229,6 @@ function buildTarget(rawTarget: string, alias: string | undefined, recordPath: s
   if (raw === "" || EXTERNAL_URL.test(raw)) return null;
   const target = raw.replace(/\\/g, "/").replace(/^\.\//, "");
   const base = basenameOf(target);
-  if (!ATTACHMENT_EXTENSIONS.has(extensionOf(base))) return null;
   // Obsidian 的别名：`|300` / `|300x200` 是显示尺寸，其余当展示文案
   const aliasText = (alias ?? "").trim();
   const size = /^(\d+)(?:\s*[xX]\s*\d+)?$/.exec(aliasText);

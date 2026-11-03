@@ -5,6 +5,7 @@ import com.dailysync.common.ApiResponse;
 import com.dailysync.common.BizException;
 import com.dailysync.dto.AttachmentDeleteResponse;
 import com.dailysync.dto.AttachmentUploadResponse;
+import com.dailysync.dto.FileInfoResponse;
 import com.dailysync.entity.Vault;
 import com.dailysync.service.AttachmentService;
 import com.dailysync.service.VaultService;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
  * 附件上传 / 下载 / 删除（JWT 保护，走 {@link com.dailysync.auth.AuthInterceptor}）。
@@ -123,6 +125,19 @@ public class AttachmentController {
                                              @RequestParam(required = false) String from) {
         vaultService.ownedVault(UserContext.userId(), id);
         return stream(attachmentService.open(id, path, name, from));
+    }
+
+    /**
+     * 列出仓库内全部非正文文件（网页端「文件」页签）。
+     *
+     * <p>M8 后附件即通用文件通道，这里回的是全量元数据（不含字节，字节另走下载接口）：
+     * path/name/size/contentType/inline/updatedAt，按 path 升序、不含墓碑。
+     * 待办快照等正文 JSON 走推送通道（daily_records），不在此列。
+     */
+    @GetMapping("/api/v1/vaults/{id}/files")
+    public ApiResponse<List<FileInfoResponse>> list(@PathVariable Long id) {
+        vaultService.ownedVault(UserContext.userId(), id);
+        return ApiResponse.ok(attachmentService.list(id));
     }
 
     // ------------------------------------------------------------

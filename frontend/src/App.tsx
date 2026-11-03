@@ -4,6 +4,7 @@ import type { UserInfo, VaultInfo } from "./types";
 import Login from "./Login";
 import Vaults from "./Vaults";
 import Records from "./Records";
+import Files from "./Files";
 import Todos from "./Todos";
 import Profile from "./Profile";
 import Admin from "./Admin";
@@ -14,11 +15,12 @@ import BackToTop from "./BackToTop";
  * profile 与 admin 都不在 TABS 常量里：前者由顶栏用户名进入，
  * 后者只对管理员显示（运行时拼进导航）。
  */
-type Tab = "vaults" | "records" | "todos" | "audit" | "profile" | "admin";
+type Tab = "vaults" | "records" | "files" | "todos" | "audit" | "profile" | "admin";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "vaults", label: "仓库" },
   { key: "records", label: "日记浏览" },
+  { key: "files", label: "文件" },
   { key: "todos", label: "待办" },
   { key: "audit", label: "日志" },
 ];
@@ -186,6 +188,13 @@ export default function App() {
         <TabPanel active={tab === "records"} opened={opened.has("records")}>
           {selectedVault != null ? (
             <Records vaultId={selectedVault} />
+          ) : (
+            <div className="panel empty">请先在「仓库」页创建或选择一个仓库</div>
+          )}
+        </TabPanel>
+        <TabPanel active={tab === "files"} opened={opened.has("files")}>
+          {selectedVault != null ? (
+            <Files vaultId={selectedVault} />
           ) : (
             <div className="panel empty">请先在「仓库」页创建或选择一个仓库</div>
           )}

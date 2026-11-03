@@ -111,3 +111,17 @@ export interface AuditLog {
   ip: string;
   createdAt: string;
 }
+
+/**
+ * 仓库内一个非正文字节（GET /api/v1/vaults/{id}/files 响应行）。
+ * M8 全类型同步后即「附件通道里的全部文件」；inline 表示下载响应会内联直出
+ * （仅位图与 PDF），前端渲染图片与否以扩展名判断为准（与正文引用同一套 isImageTarget）。
+ */
+export interface VaultFile {
+  path: string;
+  name: string;
+  size: number;
+  contentType: string;
+  inline: boolean;
+  updatedAt: string;
+}

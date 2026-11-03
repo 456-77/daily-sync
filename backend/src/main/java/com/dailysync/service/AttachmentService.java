@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.dailysync.common.BizException;
 import com.dailysync.dto.AttachmentDeleteResponse;
 import com.dailysync.dto.AttachmentUploadResponse;
+import com.dailysync.dto.FileInfoResponse;
 import com.dailysync.entity.Attachment;
 import com.dailysync.mapper.AttachmentMapper;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -55,13 +57,20 @@ public class AttachmentService {
      */
     private static final Set<String> INLINE_EXTENSIONS = Set.of("png", "jpg", "jpeg", "gif", "webp", "pdf");
 
-    /** 扩展名 -> Content-Type。服务端自己映射，不采信客户端传来的类型；未知扩展名一律八位字节流。 */
+    /**
+     * 扩展名 -> Content-Type。服务端自己映射，不采信客户端传来的类型；未知扩展名一律八位字节流。
+     * svg 必须映成 image/svg+xml 而不是落进八位字节流：nosniff 开着，字节流类型的 SVG
+     * 在 {@code <img>} 里不渲染（网页端文件页/正文引用都是 blob + img 取图）。
+     * 直出安全不用担心——svg 的 Content-Disposition 已强制 attachment，此处只影响
+     * {@code <img>} 加载（SVG 静态安全模式，脚本不执行）。
+     */
     private static final Map<String, String> MIME_BY_EXT = Map.of(
             "png", "image/png",
             "jpg", "image/jpeg",
             "jpeg", "image/jpeg",
             "gif", "image/gif",
             "webp", "image/webp",
+            "svg", "image/svg+xml",
             "pdf", "application/pdf");
 
     /** path 列宽 VARCHAR(512)；name 列宽 VARCHAR(255) */
@@ -147,6 +156,24 @@ public class AttachmentService {
         existing.setUpdatedAt(LocalDateTime.now());
         attachmentMapper.updateById(existing);
         return new AttachmentDeleteResponse(cleanPath, version, "deleted");
+    }
+
+    /**
+     * 列出仓库内全部正常附件（网页端「文件」页签用）。
+     *
+     * <p>M8 后 attachments 表即「仓库内除正文外的全部文件」，列表不再局限于图片/PDF。
+     * 只回元数据不回字节；墓碑（deleted=1）不下发。个人库的量级（几百到几千行）
+     * 一次取回没有分页的必要，按 path 排序让前端按目录分组时天然有序。
+     */
+    public List<FileInfoResponse> list(Long vaultId) {
+        return attachmentMapper.selectList(Wrappers.<Attachment>lambdaQuery()
+                        .eq(Attachment::getVaultId, vaultId)
+                        .eq(Attachment::getDeleted, 0)
+                        .orderByAsc(Attachment::getPath))
+                .stream()
+                .map(row -> new FileInfoResponse(row.getPath(), row.getName(), row.getSize(),
+                        mimeOf(row.getName()), isInline(row.getName()), row.getUpdatedAt()))
+                .toList();
     }
 
     /**

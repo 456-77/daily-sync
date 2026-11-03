@@ -1434,6 +1434,89 @@ button.danger:hover:not(:disabled) {
   cursor: default;
 }
 
+/* ---------- 文件页签（M8：仓库内全部非正文字节的网页侧入口） ---------- */
+/* 行式列表：缩略图/图标 + 名称与元信息 + 下载。目录分组沿用正文面板的 12px 灰字惯例 */
+.files-state {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 10px 0;
+}
+
+.files-body {
+  margin-top: 10px;
+}
+
+.files-group {
+  margin-bottom: 16px;
+}
+
+.files-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.files-group-title span {
+  font-weight: 400;
+}
+
+.files-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.files-group .files-row:last-child {
+  border-bottom: none;
+}
+
+.files-thumb {
+  width: 88px;
+  height: 66px;
+  flex: none;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+/* 非图片占位（📎 图标 / 加载中 / 加载失败）与缩略图同框同尺寸，行高不跳 */
+.files-thumb-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+.files-info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.files-name {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.files-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.files-dl {
+  flex: none;
+  font-size: 13px;
+}
+
 .md-body li + li {
   margin-top: 2px;
 }

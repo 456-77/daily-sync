@@ -31,7 +31,9 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # 构建 ~8 分钟 + 拉取轮询最长 40 分钟 + load/重启/冒烟——跨境链路慢起来没有下限，
+    # 40 分钟的旧上限在 2026-11-03 那次部署被撞爆（第一步 SSH 就抖了 7 分钟）。
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
 
@@ -70,6 +72,7 @@ jobs:
           # 因此 SSH 只发短命令：镜像用 nohup 后台 wget -c 断点续传（成功写标记文件），
           # 这里用一条条新 SSH 轮询标记，传输断了也只是某次续传慢，不毁整个部署。
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
             "$SSH_USER@$SSH_HOST" '
             set -e
             cd /opt/daily-sync
@@ -96,10 +99,12 @@ jobs:
             '\'' >/dev/null 2>&1 &
             echo "镜像后台拉取已启动"
             '
-          # 轮询拉取完成标记（20s × 75 次 = 25 分钟上限；-c 续传，断的是某一段不是全局）。
-          # 阿里云拉 GitHub CDN 实测约 150KB/s，百兆镜像需要十几分钟——上限放宽到 25 分钟。
+          # 轮询拉取完成标记（20s × 120 次 = 40 分钟上限；-c 续传，断的是某一段不是全局）。
+          # 阿里云拉 GitHub CDN 实测约 150KB/s，百兆镜像需要十几分钟；链路慢时 25 分钟
+          # 不够（2026-11-03 实测撞超时），放宽到 40 分钟并给每条 ssh 挂 ConnectTimeout，
+          # 挂死的连接 45 秒内自愈重试，而不是吃光整个 job 的预算。
           ok=""
-          for attempt in $(seq 1 75); do
+          for attempt in $(seq 1 120); do
             sleep 20
             if ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
               "$SSH_USER@$SSH_HOST" 'test -f /opt/daily-sync/.pull-done' 2>/dev/null; then
@@ -108,10 +113,11 @@ jobs:
             fi
           done
           if [ "$ok" != "yes" ]; then
-            echo "镜像拉取超时（25 分钟）"
+            echo "镜像拉取超时（40 分钟）"
             exit 1
           fi
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
             "$SSH_USER@$SSH_HOST" '
             set -e
             cd /opt/daily-sync
@@ -129,4 +135,5 @@ jobs:
         run: |
           sleep 15
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
             "$SSH_USER@$SSH_HOST" 'curl -fsS http://127.0.0.1:8080/healthz && echo'

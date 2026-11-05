@@ -22,7 +22,10 @@ COPY backend/pom.xml ./
 # 先下依赖（pom 未变时命中缓存层）
 RUN mvn -q dependency:go-offline
 COPY backend/src ./src
-COPY --from=frontend-build /frontend/dist ./src/main/resources/static
+# M9：SPA（vite base=/app/）挪到 static/app 子路径，站点根让给 quick-note 门户页；
+# /app 的路由转发在 WebMvcConfig 的视图控制器里
+COPY --from=frontend-build /frontend/dist ./src/main/resources/static/app
+COPY frontend/portal/ ./src/main/resources/static/
 RUN mvn -q package -DskipTests
 
 # ---------- 阶段 3：运行时 ----------

@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Quick Note · 随手记与云同步</title>
+<link rel="icon" href="./icon.png">
+<style>
+  /* ------------------------------------------------------------------
+     Quick Note 门户页（M9）——科技现代风：深色底 + 青/紫渐变 + 玻璃拟态。
+     刻意单文件零构建：门户是纯静态页，走与网页端 SPA 不同的构建链毫无收益，
+     反而多一处要维护的工程配置。
+     ------------------------------------------------------------------ */
+  :root {
+    --bg: #05070f;
+    --panel: rgba(255, 255, 255, 0.04);
+    --panel-strong: rgba(255, 255, 255, 0.06);
+    --line: rgba(255, 255, 255, 0.09);
+    --text: #e6eaf2;
+    --dim: #8b93a7;
+    --faint: #55607a;
+    --grad: linear-gradient(135deg, #22d3ee, #818cf8 55%, #c084fc);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.65 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* 背景：细网格 + 双色光晕，克制不喧宾 */
+  .bg-grid {
+    position: fixed; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(ellipse 92% 62% at 50% 0%, #000 25%, transparent 78%);
+    mask-image: radial-gradient(ellipse 92% 62% at 50% 0%, #000 25%, transparent 78%);
+  }
+  .bg-glow { position: fixed; border-radius: 50%; filter: blur(90px); opacity: 0.32; pointer-events: none; }
+  .bg-glow-a { width: 560px; height: 560px; top: -220px; left: -140px;
+    background: radial-gradient(circle, rgba(34, 211, 238, 0.5), transparent 65%); }
+  .bg-glow-b { width: 660px; height: 660px; top: -160px; right: -200px;
+    background: radial-gradient(circle, rgba(129, 140, 248, 0.45), transparent 65%); }
+
+  .page { position: relative; max-width: 880px; margin: 0 auto; padding: 68px 20px 40px; }
+
+  /* Hero */
+  .hero { text-align: center; margin-bottom: 42px; animation: rise 0.7s ease both; }
+  .brand-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 26px; }
+  .brand-icon {
+    width: 52px; height: 52px; border-radius: 14px; display: block;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 10px 32px rgba(34, 211, 238, 0.22);
+  }
+  .brand-name { font-size: 20px; font-weight: 650; letter-spacing: 0.02em; }
+  .hero-title {
+    font-size: clamp(34px, 6vw, 52px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15;
+    background: var(--grad);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-sub { margin-top: 14px; color: var(--dim); font-size: 16px; }
+  .hero-chips { margin-top: 22px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .chip {
+    padding: 5px 14px; border-radius: 999px; font-size: 13px; color: var(--dim);
+    border: 1px solid var(--line); background: var(--panel);
+  }
+
+  /* 玻璃卡片体系 */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  /* 云端入口卡 */
+  .entry-card {
+    display: flex; align-items: center; justify-content: space-between; gap: 20px;
+    padding: 28px 30px; margin-bottom: 46px;
+    animation: rise 0.7s 0.08s ease both;
+    transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+  }
+  .entry-card:hover {
+    border-color: rgba(34, 211, 238, 0.35);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 44px rgba(34, 211, 238, 0.08);
+  }
+  .entry-title { font-size: 19px; font-weight: 650; letter-spacing: 0.01em; }
+  .entry-desc { margin-top: 6px; color: var(--dim); font-size: 14px; }
+
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 9px; white-space: nowrap;
+    padding: 12px 26px; border-radius: 12px; font-size: 15px; font-weight: 650;
+    background: var(--grad); color: #071018; text-decoration: none;
+    box-shadow: 0 6px 24px rgba(96, 165, 250, 0.25);
+    transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px); filter: brightness(1.08);
+    box-shadow: 0 10px 32px rgba(96, 165, 250, 0.4);
+  }
+  .entry-status { display: inline-flex; align-items: center; gap: 10px; color: var(--dim); font-size: 14px; }
+  .spin {
+    width: 17px; height: 17px; border-radius: 50%; flex: none;
+    border: 2px solid rgba(34, 211, 238, 0.2); border-top-color: #22d3ee;
+    animation: spin 0.7s linear infinite;
+  }
+  .entry-error { color: #fda4af; font-size: 14px; line-height: 1.9; }
+  .entry-error a { color: #a5f3fc; }
+
+  /* 下载区 */
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+  .section-head h2 { font-size: 21px; font-weight: 650; letter-spacing: 0.01em; }
+  .ghost-link { color: var(--dim); font-size: 13.5px; text-decoration: none; border-bottom: 1px dashed rgba(139, 147, 167, 0.4); }
+  .ghost-link:hover { color: #c3cadb; }
+  .dl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  .dl-card { padding: 20px 22px 10px; animation: rise 0.7s 0.16s ease both; }
+  .dl-head { display: flex; align-items: center; gap: 10px; padding-bottom: 13px; border-bottom: 1px solid var(--line); }
+  .dl-tag { font-size: 12px; font-weight: 650; letter-spacing: 0.08em; padding: 3px 12px; border-radius: 999px; flex: none; }
+  .dl-tag.stable { color: #67e8f9; background: rgba(34, 211, 238, 0.1); border: 1px solid rgba(34, 211, 238, 0.3); }
+  .dl-tag.beta { color: #c4b5fd; background: rgba(129, 140, 248, 0.12); border: 1px solid rgba(129, 140, 248, 0.35); }
+  .dl-note { color: var(--faint); font-size: 12.5px; }
+  .dl-version + .dl-version { border-top: 1px dashed rgba(255, 255, 255, 0.06); }
+  .dl-version { padding: 13px 0 7px; }
+  .dl-version-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .dl-ver { font-weight: 650; font-size: 15.5px; font-variant-numeric: tabular-nums; }
+  .dl-date { color: var(--faint); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .dl-file { display: flex; align-items: center; gap: 12px; padding: 7px 0; }
+  .dl-kind { color: var(--dim); font-size: 13.5px; flex: 1; min-width: 0; }
+  .dl-size { color: var(--faint); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .btn-dl {
+    flex: none; padding: 5px 15px; border-radius: 9px; font-size: 13px; font-weight: 600;
+    color: #a5f3fc; text-decoration: none;
+    border: 1px solid rgba(34, 211, 238, 0.35); background: rgba(34, 211, 238, 0.07);
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+  }
+  .btn-dl:hover { background: rgba(34, 211, 238, 0.16); border-color: rgba(34, 211, 238, 0.6); }
+  .dl-beta .btn-dl { color: #ddd6fe; border-color: rgba(129, 140, 248, 0.4); background: rgba(129, 140, 248, 0.08); }
+  .dl-beta .btn-dl:hover { background: rgba(129, 140, 248, 0.18); border-color: rgba(129, 140, 248, 0.65); }
+  .dl-empty { color: var(--faint); font-size: 13.5px; padding: 16px 0 10px; }
+  .dl-empty a { color: #a5f3fc; }
+
+  /* 页脚 */
+  .foot {
+    margin-top: 46px; display: flex; justify-content: center; align-items: center; gap: 10px;
+    color: var(--faint); font-size: 13px;
+  }
+  .foot a { color: var(--dim); text-decoration: none; border-bottom: 1px dashed rgba(139, 147, 167, 0.4); }
+  .foot a:hover { color: #c3cadb; }
+
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes spin { to { transform: rotate(1turn); } }
+
+  /* 移动端：单列、入口卡纵排 */
+  @media (max-width: 760px) {
+    .page { padding-top: 52px; }
+    .dl-grid { grid-template-columns: 1fr; }
+    .entry-card { flex-direction: column; align-items: stretch; text-align: center; padding: 24px 22px; }
+    .entry-card .btn-primary { justify-content: center; }
+  }
+</style>
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow-a" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow-b" aria-hidden="true"></div>
+
+  <main class="page">
+    <header class="hero">
+      <div class="brand-row">
+        <img class="brand-icon" src="./icon.png" alt="Quick Note">
+        <span class="brand-name">Quick Note</span>
+      </div>
+      <h1 class="hero-title">随手记，处处同步</h1>
+      <p class="hero-sub">Windows 与 Android 双端 Markdown 笔记，数据云端随行。</p>
+      <div class="hero-chips">
+        <span class="chip">随手即记</span>
+        <span class="chip">云同步</span>
+        <span class="chip">Markdown</span>
+        <span class="chip">Windows · Android</span>
+      </div>
+    </header>
+
+    <section class="card entry-card">
+      <div>
+        <div class="entry-title">云端网页端</div>
+        <p class="entry-desc">在浏览器里浏览已同步的日记、文件与待办。</p>
+      </div>
+      <div id="entry-action">
+        <a class="btn-primary" href="/app/">进入云端网页端</a>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>下载</h2>
+        <a class="ghost-link" href="https://github.com/456-77/quick-note/releases/latest" target="_blank" rel="noreferrer">GitHub Releases ↗</a>
+      </div>
+      <div class="dl-grid">
+        <div class="card dl-card">
+          <div class="dl-head">
+            <span class="dl-tag stable">稳定版</span>
+            <span class="dl-note">经日常验证的发布版本</span>
+          </div>
+          <div id="dl-stable-list"><div class="dl-empty">列表加载中…</div></div>
+        </div>
+        <div class="card dl-card dl-beta">
+          <div class="dl-head">
+            <span class="dl-tag beta">测试版</span>
+            <span class="dl-note">新功能试验场，可能不稳定</span>
+          </div>
+          <div id="dl-beta-list"><div class="dl-empty">列表加载中…</div></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <a href="https://github.com/456-77/quick-note" target="_blank" rel="noreferrer">GitHub · quick-note</a>
+      <span>·</span>
+      <span>Quick Note 门户</span>
+    </footer>
+  </main>
+
+<script>
+(function () {
+  "use strict";
+
+  var AUTH_KEY = "daily-sync-auth";
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function fmtSize(n) {
+    if (typeof n !== "number" || n < 0) return "";
+    if (n >= 1048576) return (n / 1048576).toFixed(1) + " MB";
+    if (n >= 1024) return Math.round(n / 1024) + " KB";
+    return n + " B";
+  }
+
+  // ------------------------------------------------------------------
+  // 票据免登录：quick-note 应用内「打开云端网页端」会拼 #ticket=xxx 进来。
+  // 流程：立即把票据从地址栏剥掉（不进历史记录）→ 换正式令牌对 → 按网页端
+  // 登录态**完全相同的键名与结构**写 localStorage → 无缝跳 /app/。
+  // 失败不给重试按钮（票据一次性，重试必然再失败），引导手动登录兜底。
+  // 监听 hashchange：门户页已开着时再粘一次带票链接是同文档导航、脚本不重跑，
+  // 只有这个事件能兜住。
+  // ------------------------------------------------------------------
+  var exchanging = false;
+  function handleTicket() {
+    var ticketMatch = location.hash.match(/ticket=([A-Za-z0-9]{16,})/);
+    if (!ticketMatch || exchanging) return;
+    exchanging = true;
+    history.replaceState(null, "", location.pathname + location.search);
+    var action = document.getElementById("entry-action");
+    action.innerHTML = '<span class="entry-status"><span class="spin"></span>正在登录云端…</span>';
+    fetch("/api/v1/auth/exchange-ticket", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticket: ticketMatch[1] })
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (json) {
+        if (json && json.code === 0 && json.data && json.data.accessToken) {
+          localStorage.setItem(AUTH_KEY, JSON.stringify({
+            accessToken: json.data.accessToken,
+            refreshToken: json.data.refreshToken,
+            username: json.data.username
+          }));
+          location.replace("/app/");
+          return;
+        }
+        throw new Error((json && json.message) || "登录链接已失效");
+      })
+      .catch(function (err) {
+        action.innerHTML = '<div class="entry-error">自动登录失败：' + escapeHtml(err.message || "网络错误") +
+          '<br><a href="/app/">手动登录 →</a></div>';
+      });
+  }
+  window.addEventListener("hashchange", handleTicket);
+  handleTicket();
+
+  // ------------------------------------------------------------------
+  // 下载列表：服务端已按 通道→版本降序 排好，这里按版本分组后各取前几个
+  // 版本展示（稳定 3 版、测试 2 版）——门户只当橱窗，清理旧包是服务器上
+  // 的一条手动命令，两边职责分开。
+  // ------------------------------------------------------------------
+  var KIND_LABEL = {
+    "windows-setup": "Windows 安装包",
+    "windows-msi": "Windows MSI",
+    "android-apk": "Android APK"
+  };
+  var KEEP = { stable: 3, beta: 2 };
+
+  fetch("/api/v1/downloads")
+    .then(function (res) { return res.json(); })
+    .then(function (json) {
+      if (!json || json.code !== 0 || !Array.isArray(json.data)) throw new Error("bad payload");
+      renderChannel("stable", json.data);
+      renderChannel("beta", json.data);
+    })
+    .catch(function () {
+      var fallback = '<div class="dl-empty">列表加载失败，可前往 <a href="https://github.com/456-77/quick-note/releases/latest" target="_blank" rel="noreferrer">GitHub Releases</a> 下载。</div>';
+      document.getElementById("dl-stable-list").innerHTML = fallback;
+      document.getElementById("dl-beta-list").innerHTML = fallback;
+    });
+
+  function renderChannel(channel, items) {
+    var box = document.getElementById("dl-" + channel + "-list");
+    var mine = items.filter(function (i) { return i.channel === channel; });
+    if (!mine.length) {
+      box.innerHTML = '<div class="dl-empty">暂无可下载的安装包</div>';
+      return;
+    }
+    var byVersion = {};
+    var order = [];
+    mine.forEach(function (i) {
+      if (!byVersion[i.version]) { byVersion[i.version] = []; order.push(i.version); }
+      byVersion[i.version].push(i);
+    });
+    var html = order.slice(0, KEEP[channel]).map(function (version) {
+      var first = byVersion[version][0];
+      var rows = byVersion[version].map(function (i) {
+        return '<div class="dl-file">' +
+          '<span class="dl-kind">' + escapeHtml(KIND_LABEL[i.kind] || i.kind) + '</span>' +
+          '<span class="dl-size">' + escapeHtml(fmtSize(i.sizeBytes)) + '</span>' +
+          '<a class="btn-dl" download href="/api/v1/downloads/file?channel=' + encodeURIComponent(channel) +
+          '&name=' + encodeURIComponent(i.fileName) + '">下载</a></div>';
+      }).join("");
+      return '<div class="dl-version">' +
+        '<div class="dl-version-head"><span class="dl-ver">v' + escapeHtml(version) + '</span>' +
+        '<span class="dl-date">' + escapeHtml(String(first.modifiedAt || "").slice(0, 10)) + '</span></div>' +
+        rows + '</div>';
+    }).join("");
+    box.innerHTML = html;
+  }
+})();
+</script>
+</body>
+</html>

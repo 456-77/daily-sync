@@ -62,7 +62,10 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         }
         String path = request.getRequestURI();
         boolean authApi = path.startsWith("/api/v1/auth/");
-        boolean attachmentApi = path.startsWith("/api/v1/sync/attachments") || VAULT_ATTACHMENT.matcher(path).matches();
+        boolean attachmentApi = path.startsWith("/api/v1/sync/attachments")
+                || VAULT_ATTACHMENT.matcher(path).matches()
+                // M9 安装包下载：同为百兆级大文件入口，与附件同桶
+                || "/api/v1/downloads/file".equals(path);
         String bucket = authApi ? "auth:" : attachmentApi ? "att:" : "sync:";
         int limit = authApi ? authPerMinute : attachmentApi ? attachmentPerMinute : syncPerMinute;
 

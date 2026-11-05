@@ -60,4 +60,29 @@ public class AuthController {
     public ApiResponse<TokenResponse> refresh(@Valid @RequestBody RefreshRequest req) {
         return ApiResponse.ok(authService.refresh(req));
     }
+
+    /**
+     * 门户免登录票据（M9）：凭据校验与登录完全同口径（同话术、同审计），通过即
+     * 签发一张一次性、2 分钟有效的票据。quick-note 用本机保存的账号密码调它，
+     * 再把票据拼进门户页 URL 的 #fragment（fragment 不进服务器日志）带浏览器
+     * 完成免登录——浏览器侧由门户页 JS 调 {@link #exchangeTicket} 换正式令牌。
+     *
+     * <p>错误：401 用户名或密码错误；403 账号被禁用。
+     */
+    @PostMapping("/portal-ticket")
+    public ApiResponse<String> portalTicket(@Valid @RequestBody LoginRequest req,
+                                            HttpServletRequest request) {
+        return ApiResponse.ok(authService.issuePortalTicket(req, clientIp.of(request)));
+    }
+
+    /**
+     * 用门户票据换正式令牌对（一次性，票据 2 分钟内有效）。门户页 JS 在浏览器里
+     * 调用，成功后把响应按登录态同款结构写进 localStorage 完成免登录。
+     *
+     * <p>错误：401 票据无效 / 已过期 / 已使用（统一一句话，不区分原因）。
+     */
+    @PostMapping("/exchange-ticket")
+    public ApiResponse<PortalSessionResponse> exchangeTicket(@Valid @RequestBody TicketRequest req) {
+        return ApiResponse.ok(authService.exchangeTicket(req));
+    }
 }

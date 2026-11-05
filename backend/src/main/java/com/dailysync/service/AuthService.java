@@ -41,6 +41,7 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
+    private final PortalTicketService portalTicketService;
 
     @Value("${daily-sync.invite-code:}")
     private String inviteCode;
@@ -70,6 +71,15 @@ public class AuthService {
 
     /** 登录：用户名不存在与密码错误同一句话（防撞库探测），禁用账号 403。 */
     public TokenResponse login(LoginRequest req, String ip) {
+        return issueTokens(authenticate(req, ip));
+    }
+
+    /**
+     * 登录与门户票据（M9）共用的凭据校验：同话术、同审计。
+     * 门户票据端点本质是「又一次登录」，成败必须同样落审计日志，
+     * 否则它会成为绕过登录审计的暴力破解盲区。
+     */
+    private User authenticate(LoginRequest req, String ip) {
         User user = userMapper.selectOne(
                 Wrappers.<User>lambdaQuery().eq(User::getUsername, req.getUsername()));
         // 用户不存在与密码错误返回同一句话，不给撞库者提示
@@ -83,7 +93,31 @@ public class AuthService {
             throw new BizException(HttpStatus.FORBIDDEN, "账号已被禁用");
         }
         auditService.record(user.getId(), null, AuditService.Action.LOGIN_SUCCESS, null, ip);
-        return issueTokens(user);
+        return user;
+    }
+
+    /**
+     * 门户票据签发（M9）：凭据校验与登录完全同口径，通过即发一张一次性短 TTL
+     * 票据，给 quick-note 拼进门户页 URL 实现应用 → 浏览器免登录。
+     */
+    public String issuePortalTicket(LoginRequest req, String ip) {
+        User user = authenticate(req, ip);
+        return portalTicketService.issue(user.getId());
+    }
+
+    /** 票据兑换：一次性 + 短 TTL，失败统一 401（门户页会引导手动登录兜底）。 */
+    @Transactional
+    public PortalSessionResponse exchangeTicket(TicketRequest req) {
+        Long userId = portalTicketService.exchange(req.getTicket());
+        if (userId == null) {
+            throw new BizException(HttpStatus.UNAUTHORIZED, "登录链接已失效，请重新从应用打开或直接登录");
+        }
+        User user = userMapper.selectById(userId);
+        if (user == null || user.getStatus() != 1) {
+            throw new BizException(HttpStatus.UNAUTHORIZED, "账号不存在或已被禁用");
+        }
+        TokenResponse tokens = issueTokens(user);
+        return new PortalSessionResponse(tokens.getAccessToken(), tokens.getRefreshToken(), user.getUsername());
     }
 
     /** 用 refresh token 换新令牌对；旧 refresh 一次性作废（轮换） */

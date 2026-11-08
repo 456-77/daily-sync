@@ -68,5 +68,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addViewController("/omofun/").setViewName("forward:/omofun/index.html");
         registry.addRedirectViewController("/downloads", "/downloads/");
         registry.addViewController("/downloads/").setViewName("forward:/downloads/index.html");
+        // my-tools Web 版仪表盘（M12 追加）：同样是零构建静态页，Dockerfile 的
+        // COPY frontend/portal/ 会连同 mytools/ 一起带进 static 根；
+        // 页面路由与数据源说明见 frontend/portal/mytools/app.js 顶部注释
+        registry.addRedirectViewController("/mytools", "/mytools/");
+        registry.addViewController("/mytools/").setViewName("forward:/mytools/index.html");
     }
 }

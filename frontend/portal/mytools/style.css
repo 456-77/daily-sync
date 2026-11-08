@@ -1,0 +1,393 @@
+/* 我的工具箱（/mytools/）专属样式。
+   主题变量与 .page / .card / .catalog-* / .foot 全部复用 portal.css，这里只补
+   工具卡片、状态点、按钮等本页组件，不要把门户的公用样式复制过来。 */
+
+/* 分类筛选条：一排「全部 + 各分类」，点击只显示该类工具。 */
+.mt-filter {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 18px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mt-filter::-webkit-scrollbar {
+  display: none;
+}
+
+.mt-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--dim);
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.mt-filter-btn:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.mt-filter-btn.is-on {
+  color: #071018;
+  background: var(--grad);
+  border-color: transparent;
+  font-weight: 650;
+}
+
+.mt-filter-btn .count {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.mt-filter-btn.is-on .count {
+  background: rgba(0, 0, 0, 0.18);
+  color: #071018;
+}
+
+/* ---------- 工具卡片网格 ---------- */
+.mt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  align-items: stretch;
+  min-width: 0;
+}
+
+/* ---------- 顶部导航里的登录状态条 ---------- */
+.mt-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.mt-auth-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--faint);
+  font-size: 12.5px;
+  flex-wrap: wrap;
+}
+
+.mt-auth-strip .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.7);
+  flex: none;
+}
+
+.mt-auth-strip b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.mt-auth-strip a {
+  color: #a5f3fc;
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(165, 243, 252, 0.35);
+}
+
+.mt-auth-strip button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.mt-auth-strip button:hover {
+  color: #c3cadb;
+}
+
+/* ---------- 工具卡片 ---------- */
+.tool-card {
+  padding: 18px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  transition: transform 0.18s, border-color 0.18s, background 0.18s;
+}
+
+.tool-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(129, 140, 248, 0.45);
+}
+
+.tool-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tool-name {
+  margin: 0;
+  font-size: 16.5px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.tool-badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--dim);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.tool-badge.is-auth {
+  color: #c4b5fd;
+  background: rgba(129, 140, 248, 0.12);
+  border-color: rgba(129, 140, 248, 0.35);
+}
+
+.tool-desc {
+  margin: 0;
+  color: var(--dim);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.tool-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tool-tag {
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(129, 140, 248, 0.1);
+  color: #a5b4fc;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* ---------- 状态监控行 ---------- */
+.tool-monitors {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+
+.monitor-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  min-height: 22px;
+}
+
+.monitor-label {
+  color: var(--dim);
+  flex: none;
+}
+
+.monitor-value {
+  margin-left: auto;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  /* flex 子项默认 min-width:auto 会把长文案撑出卡片（移动端横向溢出实锤），
+     置 0 后 ellipsis 才真正生效 */
+  min-width: 0;
+}
+
+.mt-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.mt-dot.ok {
+  background: #4ade80;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.7);
+}
+
+.mt-dot.bad {
+  background: #fda4af;
+  box-shadow: 0 0 8px rgba(253, 164, 175, 0.6);
+}
+
+.mt-dot.pending {
+  background: var(--faint);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.mt-dot.desktop {
+  background: #3a4258;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+/* ---------- 入口按钮 ---------- */
+.tool-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+a.tool-btn:hover {
+  background: var(--panel-strong);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.tool-btn.primary {
+  background: var(--grad);
+  border: none;
+  color: #071018;
+  font-weight: 650;
+}
+
+.tool-btn.primary:hover {
+  filter: brightness(1.1);
+}
+
+.tool-btn[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.mt-desktop-tag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--faint);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* ---------- 顶部刷新行 ---------- */
+.mt-sep {
+  margin: 0 6px;
+  color: var(--faint);
+}
+
+.mt-refresh {
+  margin-left: 12px;
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--dim);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.mt-refresh:hover {
+  background: var(--panel-strong);
+  color: var(--text);
+}
+
+.mt-refresh.spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+/* ---------- 管理员门禁 ---------- */
+.mt-gate {
+  padding: 34px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  animation: rise 0.5s ease both;
+}
+
+.mt-gate-icon {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.mt-gate-title {
+  font-size: 19px;
+  font-weight: 650;
+}
+
+.mt-gate-desc {
+  max-width: 560px;
+  margin: 0;
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.mt-gate-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 620px) {
+  .mt-refresh {
+    margin-left: 8px;
+  }
+
+  .mt-nav-right {
+    justify-content: flex-end;
+  }
+
+  .mt-gate {
+    padding: 26px 18px;
+  }
+}

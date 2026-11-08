@@ -1,6 +1,6 @@
 # M11 — OmoFun 播放历史存档并入 daily-sync 实施文档
 
-> 状态：**本地实现与实测完成，待发版部署**（2026-11-08）
+> 状态：**已部署上线**（2026-11-08，commit `17432ab`，Actions run `42477328161`，30m07s 成功）
 >
 > 目标：把原来独立的 Rust 网页服务（`omofun-archiver` axum + SQLite + 独立密码登录 +
 > 8082 端口）整体并入 daily-sync 的 Spring Boot，复用其账号体系、MySQL、部署流水线与
@@ -276,6 +276,22 @@ daily-sync:
 5. **清理**：旧 systemd 服务已 stop + disable；`/opt/omofun-archiver` 目录保留作回滚备份，
    确认稳定后再手动删。
 
+### 10.1 实际部署记录（2026-11-08）
+
+- push master（commit `17432ab`，含之前待推的 `713fb8b`）→ Actions run `42477328161`，
+  30m07s 成功（构建 + Release + 服务器拉取 + load/up + smoke）。
+- **镜像拉取救急**：服务器 mihomo 7890 不可用，GitHub Release 直连只有 ~15KB/s；
+  改用 `gh-proxy.com` 下载 158MB 镜像（实测 ~450KB/s）。下载到独立 `.proxy` 文件，
+  `gzip -t` 校验通过后替换为 `daily-sync.tar.gz` 并 `touch .pull-done`，workflow 的轮询
+  看到标记后继续 `docker load` + `compose up`。不要与 workflow 的 `.new` 文件并发写。
+- 旧 `omofun-archiver` 已 stop + disable；`auth-tokens.json`、`server.crt`、
+  `omofun_history.db`（含 `-wal`/`-shm`）已拷到 `/opt/daily-sync/data/omofun/`。
+- 生产迁移接口返回 `0/0/0`：本地 e2e 已把同一份旧存档迁进 MySQL，服务端 SQLite 没有
+  额外条目；progress_log/poll_runs 按设计在非空表时跳过。
+- 生产 poll：57 条 / 4 页，0 新增 / 57 更新；`/healthz`、`/`、`/app/`、
+  `/api/v1/downloads`、`/omofun/` 均 200；未登录 `/api/v1/omofun/overview` 401。
+- 线上页面：UID 2436842、57 条、14 张最近卡片、8 行运行记录，登录遮罩正常隐藏。
+
 ---
 
 ## 11. 本地验证记录（2026-11-08）
@@ -313,6 +329,9 @@ daily-sync:
 7. **旧服务下线顺序**：先停 `omofun-archiver` 再拷 SQLite，避免 WAL 尾部丢失。
 8. **ADMIN 限制**：`AuthInterceptor` 对 `/api/v1/omofun/` 前缀要求 ADMIN；
    普通用户会收到 403「需要管理员权限」。
+9. **Release 直连慢 / mihomo 代理挂**：服务器直连 GitHub Release 实测 ~15KB/s；
+   `gh-proxy.com` 实测 ~450KB/s 可救急。应急下载必须落到独立文件，`gzip -t` 校验后
+   再替换 `daily-sync.tar.gz` 并 `touch .pull-done`，让 workflow 继续 load/up。
 
 ---
 

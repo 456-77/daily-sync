@@ -13,6 +13,8 @@ body { margin: 0; background: var(--bg); color: var(--text);
 header { display: flex; align-items: center; gap: 16px; padding: 14px 22px 8px; }
 .brand { font-size: 18px; font-weight: 700; }
 .logo { color: var(--accent2); }
+.toolbox-back { color: var(--muted); font-size: 12.5px; text-decoration: none; }
+.toolbox-back:hover { color: var(--text); }
 .uid { color: var(--muted); font-size: 13px; }
 .job-indicator { margin-left: auto; color: var(--accent); font-size: 13px; }
 

@@ -7,7 +7,7 @@
 <meta name="description" content="Quick Note：Windows 与 Android 双端 Markdown 笔记，本地纯文件、云端同步。">
 <title>Quick Note · 随手记与云同步</title>
 <link rel="icon" href="./icon.png">
-<link rel="stylesheet" href="/portal.css?v=20261109c">
+<link rel="stylesheet" href="/portal.css?v=20261110a">
 </head>
 <body>
   <div class="bg-grid" aria-hidden="true"></div>
@@ -144,13 +144,30 @@
       </ol>
     </section>
 
-    <section class="card entry-card">
-      <div>
-        <div class="entry-title">云端网页端</div>
-        <p class="entry-desc">在浏览器里浏览已同步的日记、文件与待办。</p>
+    <section class="card auth-card" id="login">
+      <div class="auth-head">
+        <div class="entry-title" id="auth-title">登录 Daily Sync</div>
+        <p class="entry-desc" id="auth-desc">登录一次，云端网页端与工具页共用登录态；我的工具箱仅管理员可用。</p>
       </div>
-      <div id="entry-action">
+
+      <form class="auth-form" id="auth-form" autocomplete="on">
+        <input class="auth-input" id="auth-username" name="username" type="text"
+               autocomplete="username" placeholder="用户名" required>
+        <input class="auth-input" id="auth-password" name="password" type="password"
+               autocomplete="current-password" placeholder="密码" required>
+        <button class="btn-primary auth-submit" id="auth-submit" type="submit">登录</button>
+        <a class="ghost-link auth-skip" href="/app/">暂不登录，直接进入 →</a>
+      </form>
+
+      <div class="auth-feedback" id="auth-feedback" role="status" aria-live="polite"></div>
+
+      <div class="auth-user" id="auth-user" hidden>
+        <span class="auth-dot" aria-hidden="true"></span>
+        <span class="auth-user-name">已登录 <b id="auth-username-label"></b></span>
+        <span class="auth-role" id="auth-role" hidden></span>
         <a class="btn-primary" href="/app/">进入云端网页端</a>
+        <a class="ghost-link" id="auth-tools-link" href="/mytools/" hidden>我的工具箱 →</a>
+        <button class="ghost-link auth-logout" id="auth-logout" type="button">退出登录</button>
       </div>
     </section>
 
@@ -209,12 +226,13 @@
     </footer>
   </main>
 
-<script src="/portal-entries.js?v=20261109a"></script>
+<script src="/portal-auth.js?v=20261110a"></script>
+<script src="/portal-entries.js?v=20261110a"></script>
 <script>
 (function () {
   "use strict";
 
-  var AUTH_KEY = "daily-sync-auth";
+  var PortalAuth = window.PortalAuth;
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -230,10 +248,129 @@
   }
 
   // ------------------------------------------------------------------
+  // 登录 / 云端入口二合一卡。
+  // 登录成功后只更新本卡片（停留主页）；令牌写入 localStorage["daily-sync-auth"]，
+  // 与 /app/ 网页端、/omofun/ 工具页共用，进入那些页面不再重复输入密码。
+  // 角色从 /api/v1/me 实时取，只有 ADMIN 才显示「我的工具箱」快捷入口。
+  // ------------------------------------------------------------------
+  var authForm = document.getElementById("auth-form");
+  var authUser = document.getElementById("auth-user");
+  var authTitle = document.getElementById("auth-title");
+  var authDesc = document.getElementById("auth-desc");
+  var authUsername = document.getElementById("auth-username");
+  var authPassword = document.getElementById("auth-password");
+  var authSubmit = document.getElementById("auth-submit");
+  var authFeedback = document.getElementById("auth-feedback");
+  var authUsernameLabel = document.getElementById("auth-username-label");
+  var authRole = document.getElementById("auth-role");
+  var authToolsLink = document.getElementById("auth-tools-link");
+  var authLogout = document.getElementById("auth-logout");
+  var roleToken = null;
+
+  function setFeedback(text, kind) {
+    if (!authFeedback) return;
+    authFeedback.textContent = text || "";
+    authFeedback.className = "auth-feedback" + (kind === "error" ? " is-error" : "");
+  }
+
+  function renderAuth() {
+    if (!PortalAuth) {
+      setFeedback("登录组件加载失败，请刷新页面重试", "error");
+      return;
+    }
+    var auth = PortalAuth.getAuth();
+    if (!auth) {
+      if (authForm) authForm.hidden = false;
+      if (authUser) authUser.hidden = true;
+      if (authTitle) authTitle.textContent = "登录 Daily Sync";
+      if (authDesc) authDesc.textContent = "登录一次，云端网页端与工具页共用登录态；我的工具箱仅管理员可用。";
+      if (authRole) {
+        authRole.hidden = true;
+        authRole.textContent = "";
+        authRole.className = "auth-role";
+      }
+      if (authToolsLink) authToolsLink.hidden = true;
+      roleToken = null;
+      return;
+    }
+
+    if (authForm) authForm.hidden = true;
+    if (authUser) authUser.hidden = false;
+    if (authTitle) authTitle.textContent = "云端网页端";
+    if (authDesc) authDesc.textContent = "在浏览器里浏览已同步的日记、文件与待办；登录态已共享到工具箱与工具页。";
+    if (authUsernameLabel) authUsernameLabel.textContent = auth.username || "（未知用户）";
+    loadRole(auth);
+  }
+
+  function loadRole(auth) {
+    if (!PortalAuth || !auth || roleToken === auth.accessToken) return;
+    roleToken = auth.accessToken;
+    PortalAuth.getMe().then(function (me) {
+      if (!me) return;
+      if (me.username && authUsernameLabel) authUsernameLabel.textContent = me.username;
+      if (authRole) {
+        authRole.hidden = false;
+        authRole.textContent = me.role === "ADMIN" ? "管理员" : "普通用户";
+        authRole.className = "auth-role " + (me.role === "ADMIN" ? "is-admin" : "is-user");
+      }
+      if (authToolsLink) authToolsLink.hidden = me.role !== "ADMIN";
+    }).catch(function (err) {
+      if (!PortalAuth.getAuth()) {
+        setFeedback((err && err.message) || "登录已过期，请重新登录", "error");
+        renderAuth();
+        return;
+      }
+      setFeedback((err && err.message) || "无法验证登录状态", "error");
+    });
+  }
+
+  if (authForm) {
+    authForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      if (!PortalAuth) return;
+      var username = authUsername ? authUsername.value : "";
+      var password = authPassword ? authPassword.value : "";
+      if (!username || !password) return;
+
+      if (authSubmit) {
+        authSubmit.disabled = true;
+        authSubmit.textContent = "登录中…";
+      }
+      setFeedback("");
+      PortalAuth.login(username, password).then(function () {
+        if (authPassword) authPassword.value = "";
+        setFeedback("");
+        renderAuth();
+      }).catch(function (err) {
+        setFeedback((err && err.message) || "登录失败，请稍后重试", "error");
+      }).then(function () {
+        if (authSubmit) {
+          authSubmit.disabled = false;
+          authSubmit.textContent = "登录";
+        }
+      });
+    });
+  }
+
+  if (authLogout) {
+    authLogout.addEventListener("click", function () {
+      if (!PortalAuth) return;
+      PortalAuth.logout();
+      setFeedback("已退出登录");
+      renderAuth();
+    });
+  }
+
+  if (PortalAuth) {
+    PortalAuth.onChange(renderAuth);
+    PortalAuth.onLogout(renderAuth);
+  }
+
+  // ------------------------------------------------------------------
   // 票据免登录：quick-note 应用内「打开云端网页端」会拼 #ticket=xxx 进来。
   // 流程：立即把票据从地址栏剥掉（不进历史记录）→ 换正式令牌对 → 按网页端
   // 登录态**完全相同的键名与结构**写 localStorage → 无缝跳 /app/。
-  // 失败不给重试按钮（票据一次性，重试必然再失败），引导手动登录兜底。
+  // 失败不给重试按钮（票据一次性，重试必然再失败），引导用上方表单登录。
   // 监听 hashchange：门户页已开着时再粘一次带票链接是同文档导航、脚本不重跑，
   // 只有这个事件能兜住。
   // ------------------------------------------------------------------
@@ -243,8 +380,11 @@
     if (!ticketMatch || exchanging) return;
     exchanging = true;
     history.replaceState(null, "", location.pathname + location.search);
-    var action = document.getElementById("entry-action");
-    action.innerHTML = '<span class="entry-status"><span class="spin"></span>正在登录云端…</span>';
+    if (!PortalAuth) {
+      setFeedback("登录组件加载失败，请刷新页面重试", "error");
+      return;
+    }
+    setFeedback("正在登录云端…");
     fetch("/api/v1/auth/exchange-ticket", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -253,21 +393,22 @@
       .then(function (res) { return res.json(); })
       .then(function (json) {
         if (json && json.code === 0 && json.data && json.data.accessToken) {
-          localStorage.setItem(AUTH_KEY, JSON.stringify({
+          PortalAuth.setSession({
             accessToken: json.data.accessToken,
             refreshToken: json.data.refreshToken,
             username: json.data.username
-          }));
+          });
           location.replace("/app/");
           return;
         }
         throw new Error((json && json.message) || "登录链接已失效");
       })
       .catch(function (err) {
-        action.innerHTML = '<div class="entry-error">自动登录失败：' + escapeHtml(err.message || "网络错误") +
-          '<br><a href="/app/">手动登录 →</a></div>';
+        setFeedback("自动登录失败：" + (err.message || "网络错误") + "，请用上方表单登录。", "error");
       });
   }
+
+  renderAuth();
   window.addEventListener("hashchange", handleTicket);
   handleTicket();
 

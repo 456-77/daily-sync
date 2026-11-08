@@ -112,6 +112,58 @@ body {
 .entry-error { color: #fda4af; font-size: 14px; line-height: 1.9; }
 .entry-error a { color: #a5f3fc; }
 
+/* 登录 / 云端入口二合一卡（主页 #login）。
+   未登录显示表单；已登录显示用户名/角色/进入云端/退出。
+   令牌与 /app/、/omofun/ 共用，具体逻辑在 portal-auth.js。 */
+.auth-card {
+  padding: 24px 28px; margin-bottom: 20px;
+  animation: rise 0.7s 0.08s ease both;
+}
+.auth-form {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 16px;
+}
+.auth-input {
+  flex: 1 1 180px; min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel-strong); color: var(--text);
+  font: inherit; font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.auth-input::placeholder { color: var(--faint); }
+.auth-input:focus {
+  border-color: rgba(34, 211, 238, 0.5);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.1);
+  background: rgba(255, 255, 255, 0.07);
+}
+.auth-submit { flex: none; }
+.auth-skip { flex: none; font-size: 12.5px; }
+.auth-feedback { min-height: 20px; margin-top: 8px; font-size: 12.5px; color: var(--dim); }
+.auth-feedback.is-error { color: #fda4af; }
+.auth-user { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+.auth-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex: none;
+  background: #4ade80; box-shadow: 0 0 8px rgba(74, 222, 128, 0.7);
+}
+.auth-user-name { font-size: 14px; color: var(--text); }
+.auth-user-name b { color: #a5f3fc; font-weight: 650; }
+.auth-role {
+  font-size: 10.5px; font-weight: 650; letter-spacing: 0.04em;
+  padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line);
+  color: var(--dim); background: var(--panel);
+}
+.auth-role.is-admin {
+  color: #67e8f9; background: rgba(34, 211, 238, 0.1);
+  border-color: rgba(34, 211, 238, 0.3);
+}
+.auth-role.is-user { color: var(--faint); }
+.auth-logout {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  font: inherit; font-size: 12.5px;
+}
+
 /* [hidden] 兜底：作者样式的 display:flex 会压过 hidden 属性（M11 实锤），
    「更多入口」没有配置时需要真正隐藏整个区块。 */
 [hidden] { display: none !important; }
@@ -494,6 +546,12 @@ body {
   .product { padding: 20px 18px 8px; }
   .entry-card { flex-direction: column; align-items: stretch; text-align: center; padding: 24px 22px; }
   .entry-card .btn-primary { justify-content: center; }
+  .auth-form { flex-direction: column; align-items: stretch; }
+  .auth-input { flex: 1 1 auto; }
+  .auth-submit { justify-content: center; }
+  .auth-skip { text-align: center; }
+  .auth-user { align-items: flex-start; }
+  .auth-user .btn-primary { width: 100%; justify-content: center; }
   .section-head { align-items: flex-start; flex-direction: column; gap: 8px; }
   .head-links { gap: 12px; }
 }

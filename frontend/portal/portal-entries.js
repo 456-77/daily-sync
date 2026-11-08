@@ -1,9 +1,12 @@
 /* ============================================================================
    门户「更多入口」注册表（M12 门户扩展规范的一部分）
 
-   新增一个二级入口（工具、内容页、外部链接）只改本文件的 PORTAL_ENTRIES：
-   数组按 order 升序渲染，visible:false 可临时下线，不需要改 index.html，
-   也不需要复制卡片 HTML。
+   这里只放「聚合页 / 内容页」的入口（当前只有我的工具箱）。具体工具
+   （Quick Note、Daily Sync、OmoFun、插件等）统一进工具箱注册表
+   frontend/portal/mytools/tools.js，不要再往首页挂单个工具卡。
+
+   新增一个聚合页/内容页只改本文件的 PORTAL_ENTRIES：数组按 order 升序渲染，
+   visible:false 可临时下线，不需要改 index.html，也不需要复制卡片 HTML。
 
    字段约定：
      id          必填，唯一标识；渲染成 id="entry-<id>"，建议小写字母/数字/连字符
@@ -13,30 +16,28 @@
                  其他协议（javascript:/data: 等）会被丢弃
      external    可选，true 时新窗口打开；http(s):// 外链自动新窗口
      icon        可选，短文本/emoji；缺省取标题首字符
-     badge       可选，左上角小标签（如「工具」「新」「Beta」）
+     badge       可选，左上角小标签（如「工具」「管理员」「新」）
      actionLabel 可选，右侧动作文案；缺省「打开 ↗」/「进入 →」
      order       可选，数字越小越靠前，缺省 0
      visible     可选，false 时临时隐藏（不删代码）
 
-   主入口（云端网页端、下载区）有专属布局与票据逻辑，不放进本注册表；
-   本注册表只承载「更多入口」区的二级卡片。
+   主入口（云端网页端、下载区）有专属布局与票据逻辑，不放进本注册表。
    ========================================================================== */
 (function () {
   "use strict";
 
   window.PORTAL_ENTRIES = [
     {
-      id: "omofun",
-      title: "OmoFun 观看历史存档",
-      description: "动漫观看历史的永久存档与 14 天防重置（新窗口打开）。",
-      href: "/omofun/",
-      external: true,
-      icon: "▶",
-      badge: "工具",
-      actionLabel: "打开 ↗",
+      id: "mytools",
+      title: "我的工具箱",
+      description: "管理员专属工具聚合面板：Quick Note、Daily Sync、OmoFun 存档与插件入口。",
+      href: "/mytools/",
+      icon: "🧰",
+      badge: "管理员",
+      actionLabel: "进入 →",
       order: 10
     }
-    // 新增入口示例（复制这段并改字段即可）：
+    // 新增聚合页/内容页入口示例（具体工具请加到 mytools/tools.js）：
     // {
     //   id: "status",
     //   title: "服务状态",

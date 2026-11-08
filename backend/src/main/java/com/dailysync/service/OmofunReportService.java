@@ -167,8 +167,9 @@ const fmtTime = (iso) => { if (!iso) return '—'; const d = new Date(iso); if (
   const p = (x) => String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()); };
 const fmtDur = (s) => { s = Math.max(0, Math.trunc(s||0)); const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), x=s%60, p=(v)=>String(v).padStart(2,'0');
   return h>0 ? h+':'+p(m)+':'+p(x) : m+':'+p(x); };
-const fmtDay = (iso) => (iso || '').slice(0, 10) || '—';
-const renewTag = (e) => (e.originallyWatchedAt && e.updatedAt && e.originallyWatchedAt.slice(0,10) !== e.updatedAt.slice(0,10)) ? ' <span style="color:var(--accent)">已续期</span>' : '';
+const fmtDay = (iso) => { if (!iso) return '—'; const d = new Date(iso); if (isNaN(d)) return iso.slice(0,10);
+  const p = (x) => String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); };
+const renewTag = (e) => (e.originallyWatchedAt && e.updatedAt && fmtDay(e.originallyWatchedAt) !== fmtDay(e.updatedAt)) ? ' <span style="color:var(--accent)">已续期</span>' : '';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function categoryOf(e) { if (e.serverGone || !e.serverSeen) return 'archived'; if (e.status === 2) return 'done'; if (e.status === 3) return 'paused'; return 'watching'; }
 function cardHtml(e) {

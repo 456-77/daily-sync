@@ -2,6 +2,7 @@
 // invoke 由 api-adapter.js 提供（Tauri / HTTP 双端）
 
 const STATUS_NAMES = ['未知', '在看', '看完', '暂停'];
+const JOB_NAMES = { poll: '存档', keepalive: '保活', restore: '恢复' };
 const state = {
   tab: 'overview',
   entries: [],
@@ -25,8 +26,28 @@ function fmtDur(s) {
   const p = (v) => String(v).padStart(2, '0');
   return h > 0 ? `${h}:${p(m)}:${p(x)}` : `${m}:${p(x)}`;
 }
+function pad2(v) {
+  return String(v).padStart(2, '0');
+}
+// 后端存的是固定格式 UTC（...Z），页面必须转成本地时区再显示：
+// 直接 slice(0,10) 会把傍晚 20:25 的操显示成 12:25（UTC）。
+function parseIsoDate(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? null : d;
+}
+function localDate(iso) {
+  const d = parseIsoDate(iso);
+  if (!d) return '';
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
 function fmtDay(iso) {
-  return (iso || '').slice(0, 10) || '—';
+  return localDate(iso) || '—';
+}
+function fmtDateTime(iso) {
+  const d = parseIsoDate(iso);
+  if (!d) return '—';
+  return `${localDate(iso)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
 }
 function categoryOf(e) {
   if (e.serverGoneAt || !e.lastServerSeenAt) return 'archived';
@@ -42,7 +63,7 @@ function badge(text, cls) {
 }
 function renewBadge(e) {
   if (e.originallyWatchedAt && e.serverUpdatedAt
-      && e.originallyWatchedAt.slice(0, 10) !== e.serverUpdatedAt.slice(0, 10)) {
+      && localDate(e.originallyWatchedAt) !== localDate(e.serverUpdatedAt)) {
     return ' <span class="renewed">已续期</span>';
   }
   return '';
@@ -102,7 +123,7 @@ async function loadOverview() {
 
   $('#runsTable tbody').innerHTML = (ov.runs || []).map((r) => `
     <tr class="${r.ok ? 'ok' : 'fail'}">
-      <td>${(r.startedAt || '').slice(0, 19).replace('T', ' ')}</td>
+      <td>${fmtDateTime(r.startedAt)}</td>
       <td>${r.ok ? '成功' : '失败'}</td>
       <td>${r.serverEntries ?? 0}</td>
       <td>${r.newEntries ?? 0}</td>
@@ -220,6 +241,12 @@ async function loadConfig() {
   $$('input[name=scope]').forEach((r) => { r.checked = r.value === (ka.scope || 'watching'); });
   $('#minIdleLabel').textContent = ka.minIdleDays ?? 5;
   $('#maxWritesLabel').textContent = ka.maxWrites ?? 100;
+  // 调度设置回填（服务器内置调度）
+  const sc = state.config.schedule || {};
+  $('#cfgScheduleEnabled').checked = sc.enabled !== false;
+  $('#cfgPollTime').value = sc.pollTime || '09:00';
+  $('#cfgKeepaliveEveryDays').value = sc.keepaliveEveryDays ?? 7;
+  $('#cfgKeepaliveTime').value = sc.keepaliveTime || '09:20';
 }
 
 // ---------- 任务轮询 ----------
@@ -229,7 +256,7 @@ async function pollJob() {
     const job = await invoke('get_job');
     state.job = job;
     const changed = (job.running !== state._prevRunning) || (job.lastResult !== state._prevResult);
-    $('#jobIndicator').textContent = job.running ? `⏳ ${job.name}中…` : '';
+    $('#jobIndicator').textContent = job.running ? `⏳ ${JOB_NAMES[job.name] || job.name}中…` : '';
     const banner = $('#jobBanner');
     if (job.lastResult && (!job.running)) {
       banner.hidden = false;
@@ -237,7 +264,7 @@ async function pollJob() {
       banner.style.color = job.lastResult.startsWith('失败') ? 'var(--gone)' : '#96dcb4';
     } else if (job.running) {
       banner.hidden = false;
-      banner.textContent = `正在${job.name}…（详见日志）`;
+      banner.textContent = `正在${JOB_NAMES[job.name] || job.name}…（详见日志）`;
       banner.style.color = 'var(--accent)';
     } else if (changed) {
       banner.hidden = true;
@@ -278,6 +305,19 @@ function switchTab(name) {
   if (name === 'settings') { loadConfig().catch(() => {}); loadTasks().catch(() => {}); }
 }
 
+async function runJob(kind, keys = []) {
+  const banner = $('#jobBanner');
+  banner.hidden = false;
+  banner.style.color = 'var(--accent)';
+  banner.textContent = `正在${JOB_NAMES[kind] || kind}…`;
+  try {
+    await invoke('start_job', { kind, keys });
+  } catch (e) {
+    banner.textContent = `启动失败：${e.message || e}`;
+    banner.style.color = 'var(--gone)';
+  }
+}
+
 function bind() {
   $$('.tab').forEach((t) => t.addEventListener('click', () => switchTab(t.dataset.tab)));
   $('#search').addEventListener('input', (e) => { state.search = e.target.value; renderEntries(); });
@@ -287,9 +327,9 @@ function bind() {
     renderEntries();
   }));
 
-  $('#btnPoll').addEventListener('click', () => invoke('start_job', { kind: 'poll', keys: [] }).catch((e) => alert(e)));
-  $('#btnKeepalive').addEventListener('click', () => invoke('start_job', { kind: 'keepalive', keys: [] }).catch((e) => alert(e)));
-  $('#btnKeepalive2').addEventListener('click', () => invoke('start_job', { kind: 'keepalive', keys: [] }).catch((e) => alert(e)));
+  $('#btnPoll').addEventListener('click', () => runJob('poll'));
+  $('#btnKeepalive').addEventListener('click', () => runJob('keepalive'));
+  $('#btnKeepalive2').addEventListener('click', () => runJob('keepalive'));
   $('#btnReport').addEventListener('click', async () => {
     if (IS_WEB) {
       await showReport();
@@ -301,11 +341,17 @@ function bind() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !$('#reportOverlay').hidden) closeReport();
   });
-  $('#btnRefresh').addEventListener('click', () => loadOverview().catch(() => {}));
-
-  $('#btnRestore').addEventListener('click', () => {
-    invoke('start_job', { kind: 'restore', keys: Array.from(state.selected) }).catch((e) => alert(e));
+  $('#btnRefresh').addEventListener('click', async () => {
+    const btn = $('#btnRefresh');
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ 刷新中…';
+    try { await loadOverview(); } catch (e) { /* 保持原页面，错误由总览加载处提示 */ }
+    btn.disabled = false;
+    btn.textContent = original;
   });
+
+  $('#btnRestore').addEventListener('click', () => runJob('restore', Array.from(state.selected)));
   $('#btnSelectAll').addEventListener('click', async () => {
     const list = await invoke('get_restore_candidates');
     list.forEach((e) => state.selected.add(e.key));
@@ -336,6 +382,40 @@ function bind() {
       setTimeout(() => { $('#cfgMsg').textContent = ''; }, 2000);
     } catch (e) { alert(e); }
   }
+
+  // 服务器内置调度：修改后保存到 omofun_settings，下一轮 tick 即按新时间判断
+  $('#btnSaveSchedule').addEventListener('click', async () => {
+    if (!state.config) {
+      $('#scheduleMsg').textContent = '配置尚未加载';
+      return;
+    }
+    const pollTime = $('#cfgPollTime').value;
+    const keepaliveTime = $('#cfgKeepaliveTime').value;
+    const every = parseInt($('#cfgKeepaliveEveryDays').value, 10);
+    const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
+    if (!hhmm.test(pollTime) || !hhmm.test(keepaliveTime)) {
+      $('#scheduleMsg').textContent = '时间格式必须是 HH:MM';
+      return;
+    }
+    if (!Number.isInteger(every) || every < 1 || every > 365) {
+      $('#scheduleMsg').textContent = '保活周期需在 1~365 天之间';
+      return;
+    }
+    state.config.schedule = {
+      enabled: $('#cfgScheduleEnabled').checked,
+      pollTime,
+      keepaliveEveryDays: every,
+      keepaliveTime,
+    };
+    $('#scheduleMsg').textContent = '保存中…';
+    try {
+      await invoke('save_config', { config: state.config });
+      $('#scheduleMsg').textContent = '已保存，下一轮调度生效';
+      await loadTasks();
+    } catch (e) {
+      $('#scheduleMsg').textContent = `保存失败：${e.message || e}`;
+    }
+  });
 
   $('#btnSaveCfg').addEventListener('click', async () => {
     state.config.dataDir = $('#cfgDataDir').value.trim() || 'data';

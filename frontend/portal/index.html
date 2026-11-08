@@ -4,168 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
+<meta name="description" content="Quick Note：Windows 与 Android 双端 Markdown 笔记，本地纯文件、云端同步。">
 <title>Quick Note · 随手记与云同步</title>
 <link rel="icon" href="./icon.png">
-<style>
-  /* ------------------------------------------------------------------
-     Quick Note 门户页（M9）——科技现代风：深色底 + 青/紫渐变 + 玻璃拟态。
-     刻意单文件零构建：门户是纯静态页，走与网页端 SPA 不同的构建链毫无收益，
-     反而多一处要维护的工程配置。
-     ------------------------------------------------------------------ */
-  :root {
-    --bg: #05070f;
-    --panel: rgba(255, 255, 255, 0.04);
-    --panel-strong: rgba(255, 255, 255, 0.06);
-    --line: rgba(255, 255, 255, 0.09);
-    --text: #e6eaf2;
-    --dim: #8b93a7;
-    --faint: #55607a;
-    --grad: linear-gradient(135deg, #22d3ee, #818cf8 55%, #c084fc);
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { -webkit-text-size-adjust: 100%; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font: 15px/1.65 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-    -webkit-font-smoothing: antialiased;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* 背景：细网格 + 双色光晕，克制不喧宾 */
-  .bg-grid {
-    position: fixed; inset: 0; pointer-events: none;
-    background-image:
-      linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
-    background-size: 44px 44px;
-    -webkit-mask-image: radial-gradient(ellipse 92% 62% at 50% 0%, #000 25%, transparent 78%);
-    mask-image: radial-gradient(ellipse 92% 62% at 50% 0%, #000 25%, transparent 78%);
-  }
-  .bg-glow { position: fixed; border-radius: 50%; filter: blur(90px); opacity: 0.32; pointer-events: none; }
-  .bg-glow-a { width: 560px; height: 560px; top: -220px; left: -140px;
-    background: radial-gradient(circle, rgba(34, 211, 238, 0.5), transparent 65%); }
-  .bg-glow-b { width: 660px; height: 660px; top: -160px; right: -200px;
-    background: radial-gradient(circle, rgba(129, 140, 248, 0.45), transparent 65%); }
-
-  .page { position: relative; max-width: 880px; margin: 0 auto; padding: 68px 20px 40px; }
-
-  /* Hero */
-  .hero { text-align: center; margin-bottom: 42px; animation: rise 0.7s ease both; }
-  .brand-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 26px; }
-  .brand-icon {
-    width: 52px; height: 52px; border-radius: 14px; display: block;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 10px 32px rgba(34, 211, 238, 0.22);
-  }
-  .brand-name { font-size: 20px; font-weight: 650; letter-spacing: 0.02em; }
-  .hero-title {
-    font-size: clamp(34px, 6vw, 52px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.15;
-    background: var(--grad);
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-  }
-  .hero-sub { margin-top: 14px; color: var(--dim); font-size: 16px; }
-  .hero-chips { margin-top: 22px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-  .chip {
-    padding: 5px 14px; border-radius: 999px; font-size: 13px; color: var(--dim);
-    border: 1px solid var(--line); background: var(--panel);
-  }
-
-  /* 玻璃卡片体系 */
-  .card {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 20px;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-  }
-
-  /* 云端入口卡 */
-  .entry-card {
-    display: flex; align-items: center; justify-content: space-between; gap: 20px;
-    padding: 28px 30px; margin-bottom: 46px;
-    animation: rise 0.7s 0.08s ease both;
-    transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
-  }
-  .entry-card:hover {
-    border-color: rgba(34, 211, 238, 0.35);
-    transform: translateY(-2px);
-    box-shadow: 0 14px 44px rgba(34, 211, 238, 0.08);
-  }
-  .entry-title { font-size: 19px; font-weight: 650; letter-spacing: 0.01em; }
-  .entry-desc { margin-top: 6px; color: var(--dim); font-size: 14px; }
-
-  .btn-primary {
-    display: inline-flex; align-items: center; gap: 9px; white-space: nowrap;
-    padding: 12px 26px; border-radius: 12px; font-size: 15px; font-weight: 650;
-    background: var(--grad); color: #071018; text-decoration: none;
-    box-shadow: 0 6px 24px rgba(96, 165, 250, 0.25);
-    transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
-  }
-  .btn-primary:hover {
-    transform: translateY(-1px); filter: brightness(1.08);
-    box-shadow: 0 10px 32px rgba(96, 165, 250, 0.4);
-  }
-  .entry-status { display: inline-flex; align-items: center; gap: 10px; color: var(--dim); font-size: 14px; }
-  .spin {
-    width: 17px; height: 17px; border-radius: 50%; flex: none;
-    border: 2px solid rgba(34, 211, 238, 0.2); border-top-color: #22d3ee;
-    animation: spin 0.7s linear infinite;
-  }
-  .entry-error { color: #fda4af; font-size: 14px; line-height: 1.9; }
-  .entry-error a { color: #a5f3fc; }
-
-  /* 下载区 */
-  .section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
-  .section-head h2 { font-size: 21px; font-weight: 650; letter-spacing: 0.01em; }
-  .ghost-link { color: var(--dim); font-size: 13.5px; text-decoration: none; border-bottom: 1px dashed rgba(139, 147, 167, 0.4); }
-  .ghost-link:hover { color: #c3cadb; }
-  .dl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
-  .dl-card { padding: 20px 22px 10px; animation: rise 0.7s 0.16s ease both; }
-  .dl-head { display: flex; align-items: center; gap: 10px; padding-bottom: 13px; border-bottom: 1px solid var(--line); }
-  .dl-tag { font-size: 12px; font-weight: 650; letter-spacing: 0.08em; padding: 3px 12px; border-radius: 999px; flex: none; }
-  .dl-tag.stable { color: #67e8f9; background: rgba(34, 211, 238, 0.1); border: 1px solid rgba(34, 211, 238, 0.3); }
-  .dl-tag.beta { color: #c4b5fd; background: rgba(129, 140, 248, 0.12); border: 1px solid rgba(129, 140, 248, 0.35); }
-  .dl-note { color: var(--faint); font-size: 12.5px; }
-  .dl-version + .dl-version { border-top: 1px dashed rgba(255, 255, 255, 0.06); }
-  .dl-version { padding: 13px 0 7px; }
-  .dl-version-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-  .dl-ver { font-weight: 650; font-size: 15.5px; font-variant-numeric: tabular-nums; }
-  .dl-date { color: var(--faint); font-size: 12.5px; font-variant-numeric: tabular-nums; }
-  .dl-file { display: flex; align-items: center; gap: 12px; padding: 7px 0; }
-  .dl-kind { color: var(--dim); font-size: 13.5px; flex: 1; min-width: 0; }
-  .dl-size { color: var(--faint); font-size: 12.5px; font-variant-numeric: tabular-nums; }
-  .btn-dl {
-    flex: none; padding: 5px 15px; border-radius: 9px; font-size: 13px; font-weight: 600;
-    color: #a5f3fc; text-decoration: none;
-    border: 1px solid rgba(34, 211, 238, 0.35); background: rgba(34, 211, 238, 0.07);
-    transition: background 0.2s, border-color 0.2s, color 0.2s;
-  }
-  .btn-dl:hover { background: rgba(34, 211, 238, 0.16); border-color: rgba(34, 211, 238, 0.6); }
-  .dl-beta .btn-dl { color: #ddd6fe; border-color: rgba(129, 140, 248, 0.4); background: rgba(129, 140, 248, 0.08); }
-  .dl-beta .btn-dl:hover { background: rgba(129, 140, 248, 0.18); border-color: rgba(129, 140, 248, 0.65); }
-  .dl-empty { color: var(--faint); font-size: 13.5px; padding: 16px 0 10px; }
-  .dl-empty a { color: #a5f3fc; }
-
-  /* 页脚 */
-  .foot {
-    margin-top: 46px; display: flex; justify-content: center; align-items: center; gap: 10px;
-    color: var(--faint); font-size: 13px;
-  }
-  .foot a { color: var(--dim); text-decoration: none; border-bottom: 1px dashed rgba(139, 147, 167, 0.4); }
-  .foot a:hover { color: #c3cadb; }
-
-  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-  @keyframes spin { to { transform: rotate(1turn); } }
-
-  /* 移动端：单列、入口卡纵排 */
-  @media (max-width: 760px) {
-    .page { padding-top: 52px; }
-    .dl-grid { grid-template-columns: 1fr; }
-    .entry-card { flex-direction: column; align-items: stretch; text-align: center; padding: 24px 22px; }
-    .entry-card .btn-primary { justify-content: center; }
-  }
-</style>
+<link rel="stylesheet" href="/portal.css?v=20261109c">
 </head>
 <body>
   <div class="bg-grid" aria-hidden="true"></div>
@@ -188,6 +30,120 @@
       </div>
     </header>
 
+    <!-- 应用界面复刻：纯 HTML/CSS，不上传截图、不加载真实笔记。
+         颜色与三栏结构对齐 quick-note 桌面端的深色主题，目的是让访客
+         在下载前就能看到产品真实的样子。 -->
+    <section class="showcase">
+      <div class="section-head">
+        <h2>这就是 Quick Note</h2>
+        <span class="section-hint">桌面端 · 深色主题界面</span>
+      </div>
+      <figure class="app-shot" role="img"
+              aria-label="Quick Note 桌面端界面示意：顶栏、文件树、Markdown 编辑器与右侧目录面板">
+        <div class="shot-window" aria-hidden="true">
+          <div class="shot-topbar">
+            <div class="shot-brand"><span class="shot-logo">✦</span><span>Quick Note</span></div>
+            <span class="shot-vault">我的知识库</span>
+            <div class="shot-search"><span class="shot-ico"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><span>搜索笔记、全文内容，或输入命令…</span><kbd>Ctrl K</kbd></div>
+            <div class="shot-modes"><span class="is-on">实时</span><span>源码</span></div>
+            <span class="shot-save"><i></i>已保存</span>
+            <div class="shot-win"><span>—</span><span>□</span><span>×</span></div>
+          </div>
+
+          <div class="shot-body">
+            <aside class="shot-side">
+              <div class="shot-tabs"><span class="is-on">知识库</span><span>收藏</span><span>最近</span><span>标签</span></div>
+              <div class="shot-panel-head"><b>知识库</b><em>128</em><span class="shot-icons">☰ ＋</span></div>
+              <div class="shot-filter"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>筛选笔记名…</span></div>
+              <div class="shot-tree">
+                <div class="shot-row is-dir"><span class="caret">▾</span><span class="ico"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span class="label">日记</span></div>
+                <div class="shot-row is-active"><span class="indent"></span><span class="ico"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg></span><span class="label">2026-11-08</span></div>
+                <div class="shot-row"><span class="indent"></span><span class="ico"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg></span><span class="label">2026-11-07 昨天</span></div>
+                <div class="shot-row is-dir"><span class="caret">▾</span><span class="ico"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span class="label">项目</span></div>
+                <div class="shot-row"><span class="indent"></span><span class="ico"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg></span><span class="label">daily-sync 设计</span></div>
+                <div class="shot-row"><span class="indent"></span><span class="ico"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg></span><span class="label">周报</span></div>
+                <div class="shot-row is-dir"><span class="caret">▸</span><span class="ico"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span class="label">模板</span></div>
+                <div class="shot-row"><span class="indent"></span><span class="ico"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg></span><span class="label">读书笔记</span></div>
+                <div class="shot-row"><span class="indent"></span><span class="ico"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span class="label">attachments</span></div>
+              </div>
+            </aside>
+
+            <main class="shot-editor">
+              <div class="shot-tabbar"><span class="shot-tab is-active">2026-11-08</span><span class="shot-tab">daily-sync 设计</span></div>
+              <div class="shot-doc">
+                <h1>2026-11-08</h1>
+                <div class="shot-tags"><span>#日记</span><span>#daily-sync</span></div>
+                <h2>今天要做的事</h2>
+                <ul class="shot-todos">
+                  <li class="done">接入多软件下载中心</li>
+                  <li>完善首页快速入门</li>
+                  <li>回归测试发布流程</li>
+                </ul>
+                <div class="shot-callout">💡 提示：Ctrl+K 全局搜索，Ctrl+N 新建笔记，Ctrl+Alt+N 随手速记。</div>
+                <h2>代码片段</h2>
+                <div class="shot-code"><span class="c"># 启动桌面端开发环境</span><br><span class="k">npm</span> run <span class="s">tauri</span> dev</div>
+                <p>数据保存在本地 Markdown 文件里，随时可以换回 Obsidian。</p>
+              </div>
+            </main>
+
+            <aside class="shot-side shot-right">
+              <div class="shot-tabs"><span class="is-on">目录</span><span>日历</span><span>统计</span></div>
+              <div class="shot-outline">
+                <span class="is-on">今天要做的事</span>
+                <span>代码片段</span>
+                <span>随手记录</span>
+              </div>
+              <div class="shot-cal">
+                <div class="shot-cal-head"><span>2026 年 11 月</span><span>‹ ›</span></div>
+                <div class="shot-cal-grid">
+                  <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+                  <span class="dot">1</span><span class="dot">2</span><span class="dot">3</span><span class="dot">4</span><span class="dot">5</span><span class="dot">6</span><span class="dot">7</span>
+                  <span class="today">8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span>
+                  <span>15</span><span>16</span><span>17</span><span>18</span><span>19</span><span>20</span><span>21</span>
+                  <span>22</span><span>23</span><span>24</span><span>25</span><span>26</span><span>27</span><span>28</span>
+                  <span>29</span><span>30</span><span></span><span></span><span></span><span></span><span></span>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <div class="shot-statusbar">
+            <span>日记/2026-11-08.md</span><span>换行符 CRLF</span><span>BOM 无</span><span>1,842 字节</span>
+            <span>sha256 9f3c…</span><span class="spacer"></span><span class="ok">● 已同步</span><span>128 篇</span>
+          </div>
+        </div>
+      </figure>
+    </section>
+
+    <section class="quickstart">
+      <div class="section-head">
+        <h2>四步上手</h2>
+        <span class="section-hint">从下载到云端同步</span>
+      </div>
+      <ol class="step-grid">
+        <li class="card step-card">
+          <span class="step-no">01</span>
+          <h3>下载安装</h3>
+          <p>Windows 选安装包或 MSI，Android 下 APK；想尝鲜可以切到测试版。<a href="#downloads">去下载 ↓</a></p>
+        </li>
+        <li class="card step-card">
+          <span class="step-no">02</span>
+          <h3>打开你的仓库</h3>
+          <p>选一个文件夹即可开始；也能直接指向现有的 Obsidian 仓库，笔记仍是纯 .md。</p>
+        </li>
+        <li class="card step-card">
+          <span class="step-no">03</span>
+          <h3>开始写</h3>
+          <p>Ctrl+N 新建笔记，Ctrl+Alt+N 随手速记，日历里一键建今天的日记。</p>
+        </li>
+        <li class="card step-card">
+          <span class="step-no">04</span>
+          <h3>开启云同步</h3>
+          <p>设置 → 云同步填服务器与账号，即可在<a href="/app/">云端网页端</a>随时查看。</p>
+        </li>
+      </ol>
+    </section>
+
     <section class="card entry-card">
       <div>
         <div class="entry-title">云端网页端</div>
@@ -198,18 +154,13 @@
       </div>
     </section>
 
-    <section class="card" style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 22px;">
-      <div>
-        <div class="entry-title" style="font-size:16px;">OmoFun 观看历史存档</div>
-        <p class="entry-desc" style="font-size:13px;">动漫观看历史的永久存档与 14 天防重置（新窗口打开）。</p>
-      </div>
-      <a class="ghost-link" href="/omofun/" target="_blank" rel="noreferrer">打开 ↗</a>
-    </section>
-
-    <section>
+    <section id="downloads">
       <div class="section-head">
-        <h2>下载</h2>
-        <a class="ghost-link" href="https://github.com/456-77/quick-note/releases/latest" target="_blank" rel="noreferrer">GitHub Releases ↗</a>
+        <h2>下载 Quick Note</h2>
+        <div class="head-links">
+          <a class="ghost-link" href="/downloads/">全部软件安装包 →</a>
+          <a class="ghost-link" href="https://github.com/456-77/quick-note/releases/latest" target="_blank" rel="noreferrer">GitHub Releases ↗</a>
+        </div>
       </div>
       <div class="dl-grid">
         <div class="card dl-card">
@@ -227,15 +178,38 @@
           <div id="dl-beta-list"><div class="dl-empty">列表加载中…</div></div>
         </div>
       </div>
+
+      <a class="card more-downloads" href="/downloads/">
+        <span class="more-icon" aria-hidden="true">⤓</span>
+        <span>
+          <span class="more-title">全部软件安装包</span>
+          <span class="more-desc">按软件分类浏览 Quick Note 与其他工具的稳定版、测试版安装包。</span>
+        </span>
+        <span class="more-arrow">进入下载中心 →</span>
+      </a>
+    </section>
+
+    <!-- 更多入口：由 /portal-entries.js 的 PORTAL_ENTRIES 注册表渲染。
+         新增工具/内容页只改那个数组，不再复制卡片 HTML；规范见
+         根目录《门户功能扩展规范.md》。 -->
+    <section class="portal-entries-wrap" id="portal-entries-wrap" hidden>
+      <div class="section-head">
+        <h2>更多入口</h2>
+        <span class="section-hint">工具与内容</span>
+      </div>
+      <div class="portal-entries" id="portal-entries"></div>
     </section>
 
     <footer class="foot">
       <a href="https://github.com/456-77/quick-note" target="_blank" rel="noreferrer">GitHub · quick-note</a>
       <span>·</span>
+      <a href="/downloads/">全部软件安装包</a>
+      <span>·</span>
       <span>Quick Note 门户</span>
     </footer>
   </main>
 
+<script src="/portal-entries.js?v=20261109a"></script>
 <script>
 (function () {
   "use strict";
@@ -300,7 +274,8 @@
   // ------------------------------------------------------------------
   // 下载列表：服务端已按 通道→版本降序 排好，这里按版本分组后各取前几个
   // 版本展示（稳定 3 版、测试 2 版）——门户只当橱窗，清理旧包是服务器上
-  // 的一条手动命令，两边职责分开。
+  // 的一条手动命令，两边职责分开。主页只消费 Quick Note 的列表端点；
+  // 其他软件在 /downloads/ 的全部安装包页里分类展示。
   // ------------------------------------------------------------------
   var KIND_LABEL = {
     "windows-setup": "Windows 安装包",
@@ -339,9 +314,12 @@
       var first = byVersion[version][0];
       var rows = byVersion[version].map(function (i) {
         return '<div class="dl-file">' +
-          '<span class="dl-kind">' + escapeHtml(KIND_LABEL[i.kind] || i.kind) + '</span>' +
+          '<span class="dl-file-main">' +
+            '<span class="dl-kind">' + escapeHtml(KIND_LABEL[i.kind] || i.kind) + '</span>' +
+            '<code class="dl-name" title="' + escapeHtml(i.fileName) + '">' + escapeHtml(i.fileName) + '</code>' +
+          '</span>' +
           '<span class="dl-size">' + escapeHtml(fmtSize(i.sizeBytes)) + '</span>' +
-          '<a class="btn-dl" download href="/api/v1/downloads/file?channel=' + encodeURIComponent(channel) +
+          '<a class="btn-dl" download href="/api/v1/downloads/file?product=quick-note&channel=' + encodeURIComponent(channel) +
           '&name=' + encodeURIComponent(i.fileName) + '">下载</a></div>';
       }).join("");
       return '<div class="dl-version">' +

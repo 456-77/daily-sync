@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OmoFun 播放历史存档</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20261108b">
 </head>
 <body>
 <header>
@@ -113,6 +113,16 @@
 
     <h2>⏰ 自动调度（服务器内置）</h2>
     <div id="taskList"></div>
+    <div class="kv">
+      <span>调度开关</span><label><input type="checkbox" id="cfgScheduleEnabled"> 启用内置调度</label>
+      <span>存档时间</span><input id="cfgPollTime" type="time">
+      <span>保活周期</span><span><input id="cfgKeepaliveEveryDays" type="number" min="1" max="365"> 天</span>
+      <span>保活时间</span><input id="cfgKeepaliveTime" type="time">
+    </div>
+    <div class="toolbar">
+      <button class="mini" id="btnSaveSchedule">💾 保存调度设置</button>
+      <span class="muted" id="scheduleMsg"></span>
+    </div>
     <div class="toolbar">
       <button id="btnRegTasks">注册（每天存档 09:00 + 每 7 天保活 09:20）</button>
       <button id="btnUnregTasks">卸载</button>
@@ -144,7 +154,7 @@
     <div class="login-msg" id="loginMsg"></div>
   </div>
 </div>
-<script src="api-adapter.js"></script>
-<script src="app.js"></script>
+<script src="api-adapter.js?v=20261108b"></script>
+<script src="app.js?v=20261108b"></script>
 </body>
 </html>

@@ -332,6 +332,9 @@ daily-sync:
 9. **Release 直连慢 / mihomo 代理挂**：服务器直连 GitHub Release 实测 ~15KB/s；
    `gh-proxy.com` 实测 ~450KB/s 可救急。应急下载必须落到独立文件，`gzip -t` 校验后
    再替换 `daily-sync.tar.gz` 并 `touch .pull-done`，让 workflow 继续 load/up。
+10. **静态 UI 缓存**：浏览器会缓存 `app.js` / `style.css`；改 `frontend/omofun` 的 UI 后
+    必须同步 bump `index.html` 里的 `?v=` 版本号，否则用户看到的还是旧逻辑（M11 调试时
+    设置页新控件明明是空的，就是旧 `app.js` 被缓存）。本次已 bump 到 `20261108b`。
 
 ---
 

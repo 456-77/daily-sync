@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="Quick Note 下载中心：按软件分类浏览全部稳定版与测试版安装包。">
+<title>全部软件安装包 · Quick Note 门户</title>
+<link rel="icon" href="/icon.png">
+<link rel="stylesheet" href="/portal.css?v=20261109c">
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow-a" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow-b" aria-hidden="true"></div>
+
+  <main class="page">
+    <nav class="top-nav">
+      <a class="back-link" href="/">← 返回 Quick Note 门户</a>
+      <a class="ghost-link" href="https://github.com/456-77/quick-note" target="_blank" rel="noreferrer">GitHub ↗</a>
+    </nav>
+
+    <header class="catalog-head">
+      <h1 class="catalog-title">全部软件安装包</h1>
+      <p class="catalog-sub">按软件分类浏览稳定版与测试版安装包；主页只展示 Quick Note 的最近版本，这里是全量列表。</p>
+      <p class="catalog-summary" id="catalog-summary">加载中…</p>
+    </header>
+
+    <div id="catalog">
+      <div class="catalog-empty">正在加载安装包列表…</div>
+    </div>
+
+    <footer class="foot">
+      <a href="/">Quick Note 门户</a>
+      <span>·</span>
+      <a href="/app/">云端网页端</a>
+      <span>·</span>
+      <span>全部软件安装包</span>
+    </footer>
+  </main>
+
+<script>
+(function () {
+  "use strict";
+
+  var KIND_LABEL = {
+    "windows-setup": "Windows 安装包",
+    "windows-msi": "Windows MSI",
+    "android-apk": "Android APK"
+  };
+  var CHANNEL_LABEL = { stable: "稳定版", beta: "测试版" };
+  var CHANNEL_NOTE = { stable: "经日常验证的发布版本", beta: "新功能试验场，可能不稳定" };
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function fmtSize(n) {
+    if (typeof n !== "number" || n < 0) return "";
+    if (n >= 1048576) return (n / 1048576).toFixed(1) + " MB";
+    if (n >= 1024) return Math.round(n / 1024) + " KB";
+    return n + " B";
+  }
+
+  function safeUrl(url) {
+    return typeof url === "string" && /^https?:\/\//i.test(url) ? url : null;
+  }
+
+  function byVersion(items) {
+    var map = {};
+    var order = [];
+    items.forEach(function (i) {
+      if (!map[i.version]) { map[i.version] = []; order.push(i.version); }
+      map[i.version].push(i);
+    });
+    return order.map(function (version) {
+      return { version: version, files: map[version] };
+    });
+  }
+
+  function renderFile(product, channel, item) {
+    return '<div class="dl-file">' +
+      '<span class="dl-file-main">' +
+        '<span class="dl-kind">' + escapeHtml(KIND_LABEL[item.kind] || item.kind) + '</span>' +
+        '<code class="dl-name" title="' + escapeHtml(item.fileName) + '">' + escapeHtml(item.fileName) + '</code>' +
+      '</span>' +
+      '<span class="dl-size">' + escapeHtml(fmtSize(item.sizeBytes)) + '</span>' +
+      '<a class="btn-dl" download href="/api/v1/downloads/file?product=' + encodeURIComponent(product.id) +
+      '&channel=' + encodeURIComponent(channel) + '&name=' + encodeURIComponent(item.fileName) + '">下载</a>' +
+      '</div>';
+  }
+
+  function renderChannel(product, channel, items) {
+    var body;
+    if (!items.length) {
+      body = '<div class="channel-empty">该通道暂无安装包</div>';
+    } else {
+      body = byVersion(items).map(function (group) {
+        var rows = group.files.map(function (item) {
+          return renderFile(product, channel, item);
+        }).join("");
+        var date = String(group.files[0].modifiedAt || "").slice(0, 10);
+        return '<div class="dl-version">' +
+          '<div class="dl-version-head"><span class="dl-ver">v' + escapeHtml(group.version) + '</span>' +
+          '<span class="dl-date">' + escapeHtml(date) + '</span></div>' +
+          rows + '</div>';
+      }).join("");
+    }
+    return '<section class="channel">' +
+      '<div class="channel-head">' +
+        '<span class="dl-tag ' + channel + '">' + CHANNEL_LABEL[channel] + '</span>' +
+        '<span class="dl-note">' + CHANNEL_NOTE[channel] + '</span>' +
+      '</div>' + body + '</section>';
+  }
+
+  function renderProduct(product) {
+    var name = product.name || product.id;
+    var items = Array.isArray(product.items) ? product.items : [];
+    var stable = items.filter(function (i) { return i.channel === "stable"; });
+    var beta = items.filter(function (i) { return i.channel === "beta"; });
+    var website = safeUrl(product.website);
+    var badge = escapeHtml(Array.from(name)[0] || "?");
+    var head = '<header class="product-head">' +
+      '<span class="product-badge" aria-hidden="true">' + badge + '</span>' +
+      '<div>' +
+        '<h2 class="product-name">' + escapeHtml(name) + '</h2>' +
+        (product.description ? '<p class="product-desc">' + escapeHtml(product.description) + '</p>' : '') +
+      '</div>' +
+      (website ? '<a class="ghost-link product-link" href="' + escapeHtml(website) +
+        '" target="_blank" rel="noreferrer">官网 ↗</a>' : '') +
+      '</header>';
+    var body = items.length
+      ? '<div class="product-channels">' +
+          renderChannel(product, "stable", stable) +
+          renderChannel(product, "beta", beta) +
+        '</div>'
+      : '<div class="channel-empty">暂无安装包</div>';
+    return '<article class="card product" id="product-' + escapeHtml(product.id) + '">' + head + body + '</article>';
+  }
+
+  function renderCatalog(products) {
+    var summary = document.getElementById("catalog-summary");
+    var box = document.getElementById("catalog");
+    var total = products.reduce(function (n, p) {
+      return n + (Array.isArray(p.items) ? p.items.length : 0);
+    }, 0);
+    summary.textContent = products.length + " 个软件 · " + total + " 个安装包";
+
+    if (!products.length) {
+      box.innerHTML = '<div class="catalog-empty">暂无软件安装包</div>';
+      return;
+    }
+    var html = products.map(renderProduct).join("");
+    if (products.length < 2) {
+      html += '<div class="more-soon"><b>更多软件陆续接入</b> · 新软件的安装包上传后会自动出现在这里</div>';
+    }
+    box.innerHTML = html;
+  }
+
+  fetch("/api/v1/downloads/catalog")
+    .then(function (res) { return res.json(); })
+    .then(function (json) {
+      if (!json || json.code !== 0 || !Array.isArray(json.data)) throw new Error("bad payload");
+      renderCatalog(json.data);
+    })
+    .catch(function () {
+      document.getElementById("catalog-summary").textContent = "列表加载失败";
+      document.getElementById("catalog").innerHTML =
+        '<div class="catalog-empty">列表加载失败，可前往 ' +
+        '<a href="https://github.com/456-77/quick-note/releases/latest" target="_blank" rel="noreferrer">GitHub Releases</a> 下载，或稍后刷新重试。</div>';
+    });
+})();
+</script>
+</body>
+</html>

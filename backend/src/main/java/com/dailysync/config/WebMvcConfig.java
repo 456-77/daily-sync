@@ -55,6 +55,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
      *
      * <p>M11：OmoFun 存档页同样需要显式转发（/omofun/ → static/omofun/index.html）；
      * 页面本身是公开静态资源，数据接口 /api/v1/omofun/** 由 AuthInterceptor 要求 ADMIN。
+     *
+     * <p>M12：全部软件安装包页 /downloads/ → static/downloads/index.html，与门户
+     * 同属零构建静态页；Dockerfile 的 {@code COPY frontend/portal/} 会连同子目录
+     * 一起带进 static 根。
      */
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
@@ -62,5 +66,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addViewController("/app/").setViewName("forward:/app/index.html");
         registry.addRedirectViewController("/omofun", "/omofun/");
         registry.addViewController("/omofun/").setViewName("forward:/omofun/index.html");
+        registry.addRedirectViewController("/downloads", "/downloads/");
+        registry.addViewController("/downloads/").setViewName("forward:/downloads/index.html");
     }
 }

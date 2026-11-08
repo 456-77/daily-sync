@@ -40,6 +40,10 @@ input[type=search], input[type=text] { background: var(--panel); border: 1px sol
   border-radius: 9px; padding: 9px 13px; font-size: 14px; outline: none; }
 input[type=search]:focus, input[type=text]:focus { border-color: var(--accent); }
 input[type=text] { width: 420px; }
+input[type=time], input[type=number] { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+  border-radius: 9px; padding: 9px 13px; font-size: 14px; outline: none; width: 160px; }
+input[type=time]:focus, input[type=number]:focus { border-color: var(--accent); }
+input[type=checkbox] { accent-color: var(--accent); }
 label { color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 16px; }

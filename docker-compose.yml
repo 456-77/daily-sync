@@ -8,7 +8,8 @@ services:
     container_name: daily-sync
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      # 8080 让给 nginx 边缘容器（见下方 nginx 服务）；18080 仅本机调试用
+      - "127.0.0.1:18080:8080"
     environment:
       DB_HOST: host.docker.internal
       DB_PORT: "3306"
@@ -17,7 +18,7 @@ services:
       # 邀请码：留空开放注册；上公网建议配置
       INVITE_CODE: ${INVITE_CODE:-}
       # 尚未上反向代理时保持 false；将来套 nginx 后改 true（客户端 IP 取 X-Forwarded-For）
-      BEHIND_PROXY: ${BEHIND_PROXY:-false}
+      BEHIND_PROXY: ${BEHIND_PROXY:-true}
     volumes:
       # 附件 blob 的落盘目录（M7）。不挂这一条的话，附件会写进容器的可写层，
       # 而下一次 docker compose up -d 是重建容器——图片会静默消失（正文在 MySQL 里不受影响）。
@@ -44,3 +45,23 @@ services:
       timeout: 5s
       retries: 3
       start_period: 90s
+
+  # 8080 站点边缘反代：/ → daily-sync，/omofun/ → 宿主机 systemd 服务 omofun-archiver:8082
+  # 配置文件 nginx-default.conf 在 /opt/daily-sync/ 同目录（服务器上手工放置，见 deploy/）
+  nginx:
+    image: nginx:alpine
+    container_name: daily-sync-nginx
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /opt/daily-sync/nginx-default.conf:/etc/nginx/conf.d/default.conf:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - daily-sync
+    mem_limit: 64m
+    logging:
+      options:
+        max-size: "5m"
+        max-file: "3"

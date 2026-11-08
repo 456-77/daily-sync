@@ -26,6 +26,9 @@ COPY backend/src ./src
 # /app 的路由转发在 WebMvcConfig 的视图控制器里
 COPY --from=frontend-build /frontend/dist ./src/main/resources/static/app
 COPY frontend/portal/ ./src/main/resources/static/
+# M11：OmoFun 存档页（原独立 Rust 服务的静态 UI，零构建）放 /omofun/，
+# 与 /app、门户同源部署；数据接口在 /api/v1/omofun/**（ADMIN JWT）
+COPY frontend/omofun/ ./src/main/resources/static/omofun/
 RUN mvn -q package -DskipTests
 
 # ---------- 阶段 3：运行时 ----------

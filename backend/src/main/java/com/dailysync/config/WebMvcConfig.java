@@ -52,10 +52,15 @@ public class WebMvcConfig implements WebMvcConfigurer {
      * M9：站点根让给 quick-note 门户页，网页端 SPA 挪到 /app 子路径。
      * Spring Boot 的 welcome page 只对根路径自动补 index.html，子目录必须
      * 显式转发；/app（无尾斜杠）先重定向到 /app/ 保持地址规范。
+     *
+     * <p>M11：OmoFun 存档页同样需要显式转发（/omofun/ → static/omofun/index.html）；
+     * 页面本身是公开静态资源，数据接口 /api/v1/omofun/** 由 AuthInterceptor 要求 ADMIN。
      */
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
         registry.addRedirectViewController("/app", "/app/");
         registry.addViewController("/app/").setViewName("forward:/app/index.html");
+        registry.addRedirectViewController("/omofun", "/omofun/");
+        registry.addViewController("/omofun/").setViewName("forward:/omofun/index.html");
     }
 }

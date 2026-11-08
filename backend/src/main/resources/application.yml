@@ -4,6 +4,12 @@ server:
 spring:
   application:
     name: daily-sync
+  # OmoFun 存档（M11）：schema.sql 全部是 IF NOT EXISTS，随每次启动幂等执行。
+  # 表建在 daily_sync 库，与同步数据同一套备份/运维体系；不再依赖单独的 SQLite 文件。
+  sql:
+    init:
+      mode: always
+      encoding: UTF-8
   datasource:
     # 云服务器 120.26.58.22 上的 MySQL（Docker 容器，端口已对公网放开）；
     # 容器化部署时 DB_HOST 改为宿主机地址（host.docker.internal，见 docker-compose.yml）
@@ -56,3 +62,25 @@ daily-sync:
   # 是否部署在反向代理之后（M6 上云后置 true）：开启后客户端 IP 取 X-Forwarded-For 首段。
   # 直连公网时保持 false——该头可被伪造，盲信会绕过按 IP 的限流
   behind-proxy: ${BEHIND_PROXY:false}
+  # OmoFun 播放历史存档（M11）：原独立 Rust 服务的 Java 移植版。
+  # token / 证书 / 旧 SQLite 都放在 data 目录（容器内 /app/data/omofun，对应宿主
+  # /opt/daily-sync/data/omofun，与附件同归属一个 bind mount，不新增卷）。
+  omofun:
+    enabled: ${OMOFUN_ENABLED:true}
+    # OmoFun 桌面客户端的登录态文件（accessToken 10 年有效）。手机与电脑共用同一账号。
+    auth-tokens-path: ${OMOFUN_AUTH_TOKENS_PATH:./data/omofun/auth-tokens.json}
+    # 客户端安装包内置的 server.crt：服务端是 X.509 v1 自签证书，握手后按 DER 精确锁定。
+    root-cert-path: ${OMOFUN_ROOT_CERT_PATH:./data/omofun/server.crt}
+    data-dir: ${OMOFUN_DATA_DIR:./data/omofun}
+    # 桌面客户端本地缓存回填：服务器上没有这个文件，默认跳过。
+    desktop-history-path: ${OMOFUN_DESKTOP_HISTORY_PATH:}
+    skip-backfill: ${OMOFUN_SKIP_BACKFILL:true}
+    # 旧 Rust/Node 版 SQLite 存档：仅 migrate-legacy 管理员接口读取，迁移完可删。
+    legacy-sqlite-path: ${OMOFUN_LEGACY_SQLITE_PATH:./data/omofun/omofun_history.db}
+    page-size: ${OMOFUN_PAGE_SIZE:20}
+    max-pages: ${OMOFUN_MAX_PAGES:100}
+    page-delay-ms: ${OMOFUN_PAGE_DELAY_MS:300}
+    request-timeout-ms: ${OMOFUN_REQUEST_TIMEOUT_MS:15000}
+    probe-timeout-ms: ${OMOFUN_PROBE_TIMEOUT_MS:3000}
+    # 内置调度器对表间隔；到点即触发，按日期幂等（与原 Rust 版一致）。
+    scheduler-tick-ms: ${OMOFUN_SCHEDULER_TICK_MS:30000}

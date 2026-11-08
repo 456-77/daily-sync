@@ -20,7 +20,24 @@
     <java.version>17</java.version>
     <mybatis-plus.version>3.5.12</mybatis-plus.version>
     <jjwt.version>0.12.6</jjwt.version>
+    <!-- OmoFun 存档（M11）：gRPC 客户端。版本由 grpc-bom 统一，protobuf 用
+         grpc 同代的 3.25.x；不引入 protoc 代码生成——字段定义是逆向来的，
+         手写编解码反而能精确控制签名覆盖的序列化字节。 -->
+    <grpc.version>1.68.1</grpc.version>
+    <protobuf.version>3.25.5</protobuf.version>
   </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-bom</artifactId>
+        <version>${grpc.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <dependencies>
     <!-- Web 与参数校验 -->
@@ -69,6 +86,33 @@
       <groupId>io.jsonwebtoken</groupId>
       <artifactId>jjwt-jackson</artifactId>
       <version>${jjwt.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+
+    <!-- OmoFun 存档（M11）：gRPC over TLS。
+         刻意用 grpc-netty + JDK SSLProvider，不引 netty-tcnative 原生库：
+         服务器是 CentOS 7 容器，少一套 .so 少一类发版事故；JDK 9+ 自带 ALPN，
+         OmoFun 服务端（nginx 强制 h2）能正常协商。 -->
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-netty</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-stub</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+      <version>${protobuf.version}</version>
+    </dependency>
+
+    <!-- 旧版 Rust/Node 存档迁移：只在管理员手动触发 migrate-legacy 时用。
+         存档是只增不删的长期数据，保留这条迁移通道比省十几 MB 镜像更重要。 -->
+    <dependency>
+      <groupId>org.xerial</groupId>
+      <artifactId>sqlite-jdbc</artifactId>
+      <version>3.46.1.0</version>
       <scope>runtime</scope>
     </dependency>
 

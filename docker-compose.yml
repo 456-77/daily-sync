@@ -25,6 +25,8 @@ services:
       # 这是宿主机目录的 bind mount（不是拷贝）：容器里 /app/data 与宿主 /opt/daily-sync/data
       # 是同一份数据，磁盘上只有一份。附件按 <vaultId>/<sha256 前两位>/<sha256> 分层，
       # 所以 du -sh /opt/daily-sync/data/attachments/<vaultId> 就是该仓库的实际占用。
+      # M11：OmoFun 存档的 token/证书/旧 SQLite 放在 /opt/daily-sync/data/omofun/，
+      # 容器内即 /app/data/omofun（OMOFUN_* 路径默认值见 application.yml），不新增卷。
       - /opt/daily-sync/data:/app/data
     extra_hosts:
       # Linux 上把 host.docker.internal 指到宿主机，容器才能访问宿主端口
@@ -46,10 +48,11 @@ services:
       retries: 3
       start_period: 90s
 
-  # 8080 站点边缘反代：/ → daily-sync，/omofun/ → 宿主机 systemd 服务 omofun-archiver:8082
-  # 配置文件 nginx-default.conf 在 /opt/daily-sync/ 同目录（服务器上手工放置，见 deploy/）
+  # 8080 站点边缘反代：/ → daily-sync（M11 起 /omofun/ 也由 Spring Boot 直出，
+  # 不再有指向宿主 8082 的单独 location）
+  # 配置文件 nginx-default.conf 在 /opt/daily-sync/ 同目录（随 Release 下发，见 deploy/）
   nginx:
-    image: nginx:alpine
+    image: nginx:1.27-alpine
     container_name: daily-sync-nginx
     restart: unless-stopped
     ports:

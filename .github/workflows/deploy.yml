@@ -53,7 +53,7 @@ jobs:
           gh release create deploy-latest \
             --title "部署产物（自动滚动覆盖）" \
             --notes "由 Build & Deploy 流水线自动发布，勿手动使用" \
-            /tmp/daily-sync.tar.gz docker-compose.yml
+            /tmp/daily-sync.tar.gz docker-compose.yml deploy/nginx-default.conf
 
       - name: Prepare SSH key
         env:
@@ -80,6 +80,11 @@ jobs:
             wget -q -O docker-compose.yml.new \
               "https://github.com/456-77/daily-sync/releases/download/deploy-latest/docker-compose.yml"
             mv -f docker-compose.yml.new docker-compose.yml
+            # M11：nginx 配置随 Release 下发。绑定挂载的文件内容变化不会让 compose
+            # 重建容器，所以下面 up 之后还要显式 restart nginx。
+            wget -q -O nginx-default.conf.new \
+              "https://github.com/456-77/daily-sync/releases/download/deploy-latest/nginx-default.conf"
+            mv -f nginx-default.conf.new nginx-default.conf
             rm -f .pull-done daily-sync.tar.gz.new
             nohup sh -c '\''
               # 优先走本机 mihomo 代理（7890）加速拉取；代理不可用自动回退直连。
@@ -124,6 +129,8 @@ jobs:
             rm -f .pull-done
             gunzip -c daily-sync.tar.gz | docker load
             docker compose up -d
+            # M11：nginx-default.conf 是 bind mount，内容变更不触发重建；显式重启让路由生效
+            docker compose restart nginx
             docker image prune -f
             docker ps --filter name=daily-sync --format "{{.Names}} {{.Status}}"
             '

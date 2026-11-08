@@ -1,5 +1,6 @@
 package com.dailysync.common;
 
+import com.dailysync.omofun.OmofunException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -52,6 +53,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(HttpRequestMethodNotSupportedException e) {
         return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
                 .body(ApiResponse.error(405, "请求方法不支持"));
+    }
+
+    /** OmoFun 存档链路异常：上游 gRPC/证书/token 问题，把可读原因带回给管理员页面 */
+    @ExceptionHandler(OmofunException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOmofun(OmofunException e) {
+        log.warn("OmoFun 存档异常: {}", e.getMessage());
+        String message = e.getMessage() == null || e.getMessage().isBlank()
+                ? "OmoFun 服务异常" : e.getMessage();
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(ApiResponse.error(502, message));
     }
 
     /** 兜底：未知异常不暴露堆栈给前端，完整堆栈进日志 */

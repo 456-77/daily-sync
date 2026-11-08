@@ -22,13 +22,15 @@ import java.nio.charset.StandardCharsets;
  * （无状态 JWT 一旦签发就管不了，否则要等 accessToken 自然过期才有反应），
  * 二是取到当前角色用于管理员接口的鉴权。users 表很小且走主键，这点开销可忽略。
  *
- * <p>访问控制：/api/v1/admin/** 需要 ADMIN 角色，其余接口只要求账号正常。
+ * <p>访问控制：/api/v1/admin/** 与 /api/v1/omofun/** 需要 ADMIN 角色，其余接口只要求账号正常。
+ * OmoFun 存档是单个 OmoFun 账号的全局数据（手机+电脑共用），普通用户不能看到。
  */
 @Component
 @RequiredArgsConstructor
 public class AuthInterceptor implements HandlerInterceptor {
 
     private static final String ADMIN_PREFIX = "/api/v1/admin/";
+    private static final String OMOFUN_PREFIX = "/api/v1/omofun/";
     private static final String ROLE_ADMIN = "ADMIN";
 
     private final JwtUtil jwtUtil;
@@ -73,7 +75,8 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     /** 管理员路径用 URI 前缀判定：比引入自定义注解 + 反射解析轻得多，够用 */
     private boolean isAdminPath(HttpServletRequest request) {
-        return request.getRequestURI().startsWith(ADMIN_PREFIX);
+        String uri = request.getRequestURI();
+        return uri.startsWith(ADMIN_PREFIX) || uri.startsWith(OMOFUN_PREFIX);
     }
 
     private boolean reject(HttpServletResponse response, int code, String message) throws Exception {

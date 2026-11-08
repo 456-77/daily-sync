@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OmoFun 播放历史存档</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand"><span class="logo">▶</span> OmoFun 播放历史存档</div>
+  <div class="uid" id="uid"></div>
+  <div class="job-indicator" id="jobIndicator"></div>
+</header>
+
+<nav>
+  <button class="tab active" data-tab="overview">🏠 总览</button>
+  <button class="tab" data-tab="browse">🎬 存档浏览</button>
+  <button class="tab" data-tab="actions">⚡ 保活与恢复</button>
+  <button class="tab" data-tab="settings">⚙ 设置</button>
+</nav>
+
+<main>
+  <!-- 总览 -->
+  <section id="tab-overview">
+    <p class="muted">服务端会重置 14 天未观看的历史 —— 这里保存一份只增不删的本地副本（手机 + 电脑同账号共享服务端历史）。</p>
+    <div class="chips" id="statChips"></div>
+    <div class="toolbar">
+      <button class="primary" id="btnPoll">⟳ 立即存档</button>
+      <button id="btnKeepalive" title="把范围条目的当前进度原样回写服务端，防止 14 天重置">⚡ 立即保活</button>
+      <button id="btnReport">📊 打开报告</button>
+      <button id="btnRefresh">🔄 刷新</button>
+    </div>
+    <div class="banner" id="jobBanner" hidden></div>
+
+    <h2>正在追</h2>
+    <div class="strip" id="recentStrip"></div>
+
+    <h2>最近运行</h2>
+    <table class="runs" id="runsTable">
+      <thead><tr><th>时间</th><th>结果</th><th>服务端</th><th>新增</th><th>备注</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- 存档浏览 -->
+  <section id="tab-browse" hidden>
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="🔍 搜索标题 / 关键词…">
+      <span class="filters">
+        <button class="filter active" data-f="all">全部</button>
+        <button class="filter" data-f="watching">在看</button>
+        <button class="filter" data-f="done">看完</button>
+        <button class="filter" data-f="paused">暂停</button>
+        <button class="filter" data-f="archived">仅存档</button>
+      </span>
+      <span class="muted right" id="entryCount"></span>
+    </div>
+    <div class="grid" id="entryGrid"></div>
+  </section>
+
+  <!-- 保活与恢复 -->
+  <section id="tab-actions" hidden>
+    <h2>⚡ 自动保活</h2>
+    <p class="muted">定期把条目的当前进度<em>原样回写</em>服务端，刷新"最后观看时间"，使其永不进入 14 天重置窗口。只回写存档精确快照；服务端版本更新时自动并入、绝不覆盖。</p>
+    <div class="toolbar">
+      <span class="muted">范围：</span>
+      <label><input type="radio" name="scope" value="watching"> 仅"在看"</label>
+      <label><input type="radio" name="scope" value="all"> 全部</label>
+      <label><input type="radio" name="scope" value="whitelist"> 白名单</label>
+      <span class="sep"></span>
+      <span class="muted">空闲阈值 <b id="minIdleLabel">5</b> 天</span>
+      <button class="mini" id="minIdleMinus">➖</button>
+      <button class="mini" id="minIdlePlus">➕</button>
+      <span class="muted">单轮上限 <b id="maxWritesLabel">100</b> 条</span>
+    </div>
+    <div class="toolbar">
+      <button class="primary" id="btnKeepalive2">⚡ 立即保活一轮</button>
+      <button class="mini" id="btnSaveKeepalive" hidden>💾 保存保活设置</button>
+    </div>
+
+    <h2>♻ 恢复</h2>
+    <p class="muted">对"服务端已重置 / 仅本地回填"的条目，以存档精确快照重新写入服务端（版本 0 新建）。</p>
+    <div class="toolbar">
+      <button class="mini" id="btnSelectAll">全选</button>
+      <button class="mini" id="btnClearSel">清空选择</button>
+      <button class="primary" id="btnRestore" disabled>♻ 恢复选中 0 条</button>
+      <span class="muted" id="candidateCount"></span>
+    </div>
+    <div class="candidates" id="candidateList"></div>
+
+    <h2>运行日志</h2>
+    <pre class="log" id="logPanel">（暂无）</pre>
+  </section>
+
+  <!-- 设置 -->
+  <section id="tab-settings" hidden>
+    <h2>账号</h2>
+    <div class="kv">
+      <span>登录 token</span><span id="tokenStatus" class="muted">检查中…</span>
+      <span>账号 UID</span><span id="uidSetting" class="muted"></span>
+    </div>
+
+    <h2>路径</h2>
+    <div class="kv">
+      <span>数据目录</span><input id="cfgDataDir" type="text">
+      <span>证书路径</span><input id="cfgCertPath" type="text">
+    </div>
+    <div class="toolbar">
+      <button id="btnSaveCfg" disabled>💾 保存配置</button>
+      <span class="muted" id="cfgMsg"></span>
+    </div>
+
+    <h2>⏰ 自动调度（服务器内置）</h2>
+    <div id="taskList"></div>
+    <div class="toolbar">
+      <button id="btnRegTasks">注册（每天存档 09:00 + 每 7 天保活 09:20）</button>
+      <button id="btnUnregTasks">卸载</button>
+      <button class="mini" id="btnMigrateLegacy">迁移旧 SQLite 存档</button>
+      <button class="mini" id="btnLogout" hidden>退出登录</button>
+    </div>
+
+    <h2>运行日志</h2>
+    <pre class="log" id="logPanel2">（暂无）</pre>
+  </section>
+</main>
+
+<!-- 报告全屏遮罩：不依赖 window.open（浏览器弹窗拦截 / 内置浏览器会直接返回 null） -->
+<div id="reportOverlay" class="report-overlay" hidden>
+  <div class="report-bar">
+    <span>📊 OmoFun 观看历史存档报告</span>
+    <button class="mini" id="reportClose">关闭</button>
+  </div>
+  <iframe id="reportFrame" title="OmoFun 观看历史存档报告"></iframe>
+</div>
+
+<div id="loginOverlay" class="login-overlay" hidden>
+  <div class="login-box">
+    <div class="login-title">▶ OmoFun 播放历史存档</div>
+    <div class="login-sub">请用 daily-sync 管理员账号登录</div>
+    <input id="loginUsername" type="text" placeholder="用户名" autocomplete="username">
+    <input id="loginPassword" type="password" placeholder="密码" autocomplete="current-password">
+    <button id="loginBtn" class="primary">登 录</button>
+    <div class="login-msg" id="loginMsg"></div>
+  </div>
+</div>
+<script src="api-adapter.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

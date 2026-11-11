@@ -76,13 +76,23 @@ jobs:
             "$SSH_USER@$SSH_HOST" '
             set -e
             cd /opt/daily-sync
-            # compose 只有几 KB，同步拉（短连接内完成）
-            wget -q -O docker-compose.yml.new \
+            # 两个小配置同步拉。也必须带重试：2026-11-12 实锤，跨境抖一下
+            # （wget exit 4）在 set -e 下直接杀死整个部署步骤——大镜像有 20 轮
+            # 重试，小文件却是单发，主流程反而在最没防备的地方断了。
+            fetch_small() {
+              local out="$1" url="$2" i
+              for i in 1 2 3 4 5; do
+                if wget -q -O "$out" "$url"; then return 0; fi
+                sleep 5
+              done
+              return 1
+            }
+            fetch_small docker-compose.yml.new \
               "https://github.com/456-77/daily-sync/releases/download/deploy-latest/docker-compose.yml"
             mv -f docker-compose.yml.new docker-compose.yml
             # M11：nginx 配置随 Release 下发。绑定挂载的文件内容变化不会让 compose
             # 重建容器，所以下面 up 之后还要显式 restart nginx。
-            wget -q -O nginx-default.conf.new \
+            fetch_small nginx-default.conf.new \
               "https://github.com/456-77/daily-sync/releases/download/deploy-latest/nginx-default.conf"
             mv -f nginx-default.conf.new nginx-default.conf
             rm -f .pull-done daily-sync.tar.gz.new
@@ -127,6 +137,9 @@ jobs:
             set -e
             cd /opt/daily-sync
             rm -f .pull-done
+            # 半截镜像防线：wget 循环 20 轮全败但 .new 已有残段时，mv 仍会把残段
+            # 顶成正式文件。先 gzip -t 拦住不完整的 tar.gz，别让它进 docker load
+            gzip -t daily-sync.tar.gz
             gunzip -c daily-sync.tar.gz | docker load
             docker compose up -d
             # M11：nginx-default.conf 是 bind mount，内容变更不触发重建；显式重启让路由生效

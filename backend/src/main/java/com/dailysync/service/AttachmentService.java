@@ -77,6 +77,15 @@ public class AttachmentService {
     private static final int PATH_MAX = 512;
     private static final int NAME_MAX = 255;
 
+    /**
+     * 库内配置文件不参与同步（2026-11-12 事故防线）：quick-daily-note.json 是
+     * quick-daily-note 插件的设备级配置，可能含 emailAccessKey 一类凭据，M8 全类型
+     * 同步把它当普通附件双向上云、多端旧副本互相覆盖。泄露副本已人工删除，这道闸
+     * 挡住旧版客户端（quick-note &lt;0.39.3，双侧排除该文件之前的版本）继续上传；
+     * 新版客户端自己也不会再传。只拦库根的这份文件——子目录里同名的用户文件不误伤。
+     */
+    private static final String CONFIG_FILE_PATH = "quick-daily-note.json";
+
     private final AttachmentMapper attachmentMapper;
     private final VaultService vaultService;
     private final AttachmentStore blobStore;
@@ -96,11 +105,17 @@ public class AttachmentService {
      * 一次流式读取就把两个限制都卡住，既不先把大文件写完再回滚，也不会因为粗粒度
      * 预检把「覆盖成更小的文件」误判成超配额。
      *
-     * @throws BizException 400 路径不合法；413 超单文件上限或仓库配额
+     * @throws BizException 400 路径不合法；403 库内配置文件（见 {@link #CONFIG_FILE_PATH}）；
+     *                     413 超单文件上限或仓库配额
      */
     @Transactional
     public AttachmentUploadResponse store(Long vaultId, String path, InputStream in) {
         String cleanPath = validatePath(path);
+        if (CONFIG_FILE_PATH.equals(cleanPath)) {
+            // 403 给旧版客户端一个明确的失败（不再传成功），重装新版后自然消失；
+            // 删除（tombstone）不拦——旧副本能删是好事
+            throw new BizException(HttpStatus.FORBIDDEN, "库内配置文件不参与同步");
+        }
         Attachment existing = selectByPath(vaultId, cleanPath);
         // 覆盖同一路径时旧占用的字节会释放，配额按净增量算
         long previous = existing != null && existing.getDeleted() == 0 ? existing.getSize() : 0L;

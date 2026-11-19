@@ -58,6 +58,16 @@ public class VaultService {
         if (trimmed.isEmpty() || trimmed.length() > 64) {
             throw new BizException(HttpStatus.BAD_REQUEST, "vault: 仓库名长度需要 1-64");
         }
+        String requested = trimmed;
+        trimmed = normalizeVaultName(trimmed);
+        if (!trimmed.equals(requested)) {
+            // 2026-11-18/19「D:\study\inbox」事故的服务端兜底：老客户端把云端仓库名
+            // 存成整条本地路径（quick-note 0.39.25 及更早的 syncVaultOnce 对反斜杠
+            // 路径的 basename 提取是坏的），每次速记触发的同步都自动建出一个同名
+            // 假仓库，数据进了错仓还静默分叉。这里与新版客户端 effectiveVaultName
+            // 同一语义归一为最后一段目录名，任何版本的客户端都受益。
+            log.warn("vault: 仓库名「{}」像本地路径，已归一为「{}」", requested, trimmed);
+        }
         Vault existing = selectByName(userId, trimmed);
         if (existing != null) {
             return existing;
@@ -69,8 +79,9 @@ public class VaultService {
         vault.setCreatedAt(LocalDateTime.now());
         try {
             vaultMapper.insert(vault);
-            auditService.record(userId, vault.getId(), AuditService.Action.VAULT_CREATE,
-                    "插件同步自动创建仓库: " + trimmed, null);
+            String detail = "插件同步自动创建仓库: " + trimmed
+                    + (trimmed.equals(requested) ? "" : "（请求名「" + requested + "」像路径已归一）");
+            auditService.record(userId, vault.getId(), AuditService.Action.VAULT_CREATE, detail, null);
             return vault;
         } catch (DuplicateKeyException e) {
             // 并发首同步：另一台设备先建了同名仓库，重查拿现成的
@@ -128,11 +139,30 @@ public class VaultService {
      */
     public Vault ownedVaultByName(Long userId, String name) {
         String trimmed = name == null ? "" : name.trim();
+        // 与 findOrCreateVault 同一道归一：老客户端按名下载附件时也会带上路径状仓库名
+        if (!trimmed.isEmpty()) {
+            trimmed = normalizeVaultName(trimmed);
+        }
         Vault vault = trimmed.isEmpty() ? null : selectByName(userId, trimmed);
         if (vault == null) {
             throw new BizException(HttpStatus.NOT_FOUND, "仓库不存在");
         }
         return vault;
+    }
+
+    /**
+     * 仓库名归一：含路径分隔符或盘符冒号的名字回落为最后一段目录名
+     * （quick-note 的 isPathLikeVaultName/effectiveVaultName 同一语义）。
+     * 归一后为空（名字以分隔符结尾）则保持原样，交给既有的空名校验报错。
+     */
+    static String normalizeVaultName(String name) {
+        String unified = name.replace('\\', '/');
+        int slash = unified.lastIndexOf('/');
+        if (slash < 0) {
+            return name;
+        }
+        String base = unified.substring(slash + 1);
+        return base.isEmpty() ? name : base;
     }
 
     /**

@@ -51,9 +51,11 @@ daily-sync:
   storage:
     dir: ${ATTACHMENT_DIR:./data/attachments}
   attachments:
-    # 全类型同步（M8）：附件通道即通用文件通道，上限放宽到 50MB（大 PDF/录音/幻灯片）
-    max-file-bytes: 52428800     # 单文件 50MB；客户端 quick-note 侧常量须与此一致
-    quota-bytes: 1073741824      # 每仓库配额 1GB（软上限，超限 413 并提示；存大文件多可用 env 调）
+    # 全类型同步（M8）：附件通道即通用文件通道。0.39.26 从 50MB 放宽到 200MB
+    # （用户反馈「同步文件过大还是会有报错」：handTraining 80MB 视频被 50MB 拦住，
+    # 哈希记不上 → 客户端每轮白读两遍 + 横幅刷屏）。nginx client_max_body_size 224m。
+    max-file-bytes: 209715200    # 单文件 200MB；客户端 quick-note 侧常量须与此一致
+    quota-bytes: 3221225472      # 每仓库配额 3GB（软上限，超限 413 并提示；存大文件多可用 env 调）
   # 安装包分发（M9）：stable/ 与 beta/ 两个子目录，包由本地构建后 scp 上来。
   # 与附件同款相对路径解析：本地 → backend/data/downloads，
   # 容器运行（WORKDIR /app）→ /app/data/downloads，对应宿主机 /opt/daily-sync/data
